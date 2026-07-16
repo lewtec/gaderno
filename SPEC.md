@@ -97,6 +97,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 | 20 | **Large outputs (v1):** cap + truncate only; no blob store. Big/binary plumbing later. |
 | 21 | **Structure/authority:** anyone may propose any doc change; **server may reject** (drop/not relay, error to originator). |
 | 22 | **Keyboard UX (v1):** no custom hotkey scheme; at most basic focusable controls (tab order, buttons, native focus). |
+| 23 | **CLI:** Cobra + Viper; room to grow (`serve`, `version` now). **No config file.** Flags override env. Env prefix `GADERNO_`. |
 
 ---
 
@@ -531,10 +532,14 @@ type NotebookStore interface {
 
 ### CLI
 
+Cobra commands (room to grow; no stub subcommands that do nothing useful):
+
 ```text
-gaderno serve --root DIR [--listen 127.0.0.1:8080] [--token SECRET]
+gaderno serve [--root DIR] [--listen ADDR] [--token SECRET]
 gaderno version
 ```
+
+**Config (Viper):** no config file. Bind flags + automatic env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). **Precedence: flags > env > defaults.**
 
 ---
 
@@ -670,6 +675,7 @@ Large outputs: cap+truncate. Structure: anyone proposes; server may reject.
 17. **Large outputs:** v1 = cap and truncate only; blob system later.
 18. **Doc mutations:** everyone may propose any change; **server may reject** (outputs/exec fields always rejected from clients).
 19. **No custom hotkeys in v1** — buttons and basic focusable controls only (native tab/focus).
+20. **CLI: Cobra + Viper** — flags override env; no config file; `GADERNO_` env prefix.
 
 ---
 
