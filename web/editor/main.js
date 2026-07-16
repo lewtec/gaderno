@@ -36,10 +36,6 @@ function randomUser() {
   };
 }
 
-/**
- * Create a collaborative notebook session bound to a WebSocket.
- * Returns helpers for mounting editors and feeding protocol messages.
- */
 export function createCollabSession() {
   const ydoc = new Y.Doc();
   const awareness = new awarenessProtocol.Awareness(ydoc);
@@ -47,11 +43,10 @@ export function createCollabSession() {
   awareness.setLocalStateField("user", user);
 
   const editors = new Map();
-  let sendBinary = null; // (Uint8Array) => void
+  let sendBinary = null;
   let sendJSON = null;
   let connected = false;
 
-  // Outbound document updates
   const onDocUpdate = (update, origin) => {
     if (origin === "remote" || !sendBinary) return;
     const encoder = encoding.createEncoder();
@@ -60,19 +55,14 @@ export function createCollabSession() {
   };
   ydoc.on("update", onDocUpdate);
 
-  // Outbound awareness
   const onAwareness = ({ added, updated, removed }) => {
     if (!sendJSON) return;
     const changed = added.concat(updated, removed);
     if (changed.length === 0) return;
     const update = awarenessProtocol.encodeAwarenessUpdate(awareness, changed);
-    // base64 for JSON transport
     let bin = "";
     for (let i = 0; i < update.length; i++) bin += String.fromCharCode(update[i]);
-    sendJSON({
-      type: "awareness",
-      update: btoa(bin),
-    });
+    sendJSON({ type: "awareness", update: btoa(bin) });
   };
   awareness.on("update", onAwareness);
 
@@ -80,11 +70,9 @@ export function createCollabSession() {
     sendBinary = opts.sendBinary;
     sendJSON = opts.sendJSON;
     connected = true;
-    // Request full state from server
     const encoder = encoding.createEncoder();
     syncProtocol.writeSyncStep1(encoder, ydoc);
     sendBinary(encoding.toUint8Array(encoder));
-    // Announce presence
     onAwareness({
       added: [awareness.clientID],
       updated: [],
@@ -107,15 +95,30 @@ export function createCollabSession() {
       const u8 = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
       awarenessProtocol.applyAwarenessUpdate(awareness, u8, "remote");
-    } catch (_) {
-      /* ignore bad frames */
-    }
+    } catch (_) {}
+  }
+
+  function destroyEditors() {
+    editors.forEach((v) => v.destroy());
+    editors.clear();
   }
 
   function mountEditors(root) {
+    destroyEditors();
     const scope = root || document;
+    const seen = new Set();
     scope.querySelectorAll("[data-gaderno-editor]").forEach((host) => {
       const cellId = host.getAttribute("data-cell-id");
+      if (!cellId || seen.has(cellId)) {
+        // Skip empty/duplicate ids — they share one Y.Text and cause dual-edit bugs.
+        host.replaceChildren();
+        host.insertAdjacentHTML(
+          "beforeend",
+          '<p class="text-xs text-error p-2">Invalid cell id (skipped)</p>'
+        );
+        return;
+      }
+      seen.add(cellId);
       const lang = host.getAttribute("data-lang") || "python";
       host.replaceChildren();
 
@@ -126,17 +129,15 @@ export function createCollabSession() {
       const view = new EditorView({
         parent: host,
         state: EditorState.create({
-          doc: ytext.toString(),
+          // Let yCollab own the document; empty seed, sync fills content.
+          doc: "",
           extensions: [
             basicSetup,
             langExt,
             EditorView.lineWrapping,
             yCollab(ytext, awareness, { undoManager: false }),
             EditorView.theme({
-              "&": {
-                fontSize: "0.8125rem",
-                minHeight: minH + "px",
-              },
+              "&": { fontSize: "0.8125rem", minHeight: minH + "px" },
               ".cm-scroller": {
                 fontFamily:
                   'ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace',
@@ -165,14 +166,15 @@ export function createCollabSession() {
         const v = editors.get(cellId);
         if (v) v.focus();
       },
-      destroy() {
-        editors.forEach((v) => v.destroy());
-        editors.clear();
+      remount(root) {
+        return mountEditors(root);
       },
+      destroy: destroyEditors,
     };
   }
 
   function destroy() {
+    destroyEditors();
     awareness.off("update", onAwareness);
     ydoc.off("update", onDocUpdate);
     awareness.setLocalState(null);

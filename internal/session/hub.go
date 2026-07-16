@@ -301,6 +301,48 @@ func (h *Hub) persistKernelspecLocked(name string) error {
 	return h.store.Save(context.Background(), h.Path, nb)
 }
 
+// InsertCell adds a cell and notifies clients to rebuild structure.
+func (h *Hub) InsertCell(index int, cellType string) (string, error) {
+	ct := document.CellType(cellType)
+	if ct == "" {
+		ct = document.CellCode
+	}
+	id, err := h.Doc.InsertCell(index, ct, "")
+	if err != nil {
+		return "", err
+	}
+	h.broadcastStructure()
+	return id, nil
+}
+
+// DeleteCell removes a cell and notifies clients.
+func (h *Hub) DeleteCell(cellID string) error {
+	if err := h.Doc.DeleteCell(cellID); err != nil {
+		return err
+	}
+	h.broadcastStructure()
+	return nil
+}
+
+// MoveCell reorders a cell and notifies clients.
+func (h *Hub) MoveCell(cellID string, toIndex int) error {
+	if err := h.Doc.MoveCell(cellID, toIndex); err != nil {
+		return err
+	}
+	h.broadcastStructure()
+	return nil
+}
+
+func (h *Hub) broadcastStructure() {
+	cells := h.Doc.SnapshotCells()
+	b, _ := json.Marshal(map[string]any{
+		"type":  "notebook.structure",
+		"cells": cells,
+	})
+	h.BroadcastJSON(b, "")
+	h.scheduleSave()
+}
+
 // SetCellSource updates cell source in the CRDT and notifies other clients.
 // skipClient is the originator (they already have the text); empty = notify all.
 func (h *Hub) SetCellSource(cellID, source string, skipClient string) error {

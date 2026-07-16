@@ -28,6 +28,7 @@ type wsControl struct {
 	Source string `json:"source,omitempty"`
 	Name   string `json:"name,omitempty"`
 	Update string `json:"update,omitempty"` // base64 awareness payload
+	Index  *int   `json:"index,omitempty"`
 }
 
 func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) {
@@ -138,6 +139,45 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 		select {
 		case client.Out <- session.Outbound{Data: b}:
 		default:
+		}
+	case "cell.insert":
+		idx := 0
+		if ctrl.Index != nil {
+			idx = *ctrl.Index
+		} else {
+			// append by default
+			idx = len(hub.Doc.SnapshotCells())
+		}
+		ct := ctrl.Text // "code" | "markdown"
+		if ct == "" {
+			ct = "code"
+		}
+		id, err := hub.InsertCell(idx, ct)
+		if err != nil {
+			sendErr(client, err.Error())
+			return
+		}
+		// structure broadcast already sent; include focus hint to originator
+		b, _ := json.Marshal(map[string]any{"type": "cell.inserted", "cell_id": id, "index": idx})
+		select {
+		case client.Out <- session.Outbound{Data: b}:
+		default:
+		}
+	case "cell.delete":
+		if ctrl.CellID == "" {
+			sendErr(client, "cell_id required")
+			return
+		}
+		if err := hub.DeleteCell(ctrl.CellID); err != nil {
+			sendErr(client, err.Error())
+		}
+	case "cell.move":
+		if ctrl.CellID == "" || ctrl.Index == nil {
+			sendErr(client, "cell_id and index required")
+			return
+		}
+		if err := hub.MoveCell(ctrl.CellID, *ctrl.Index); err != nil {
+			sendErr(client, err.Error())
 		}
 	case "kernel.bind":
 		name := ctrl.Name

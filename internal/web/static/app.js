@@ -79,6 +79,8 @@ import { createCollabSession } from "./editor.js";
       }
       if (msg.type === "awareness" && msg.update) {
         collab.handleAwarenessB64(msg.update);
+      } else if (msg.type === "notebook.structure") {
+        applyStructure(msg.cells || []);
       } else if (msg.type === "exec.clear") {
         const cell = document.querySelector(
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
@@ -159,6 +161,101 @@ import { createCollabSession } from "./editor.js";
       }
     };
   }
+
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function buildCellHTML(c) {
+    const id = escapeHtml(c.id);
+    const typ = c.type === "markdown" ? "markdown" : "code";
+    const isCode = typ === "code";
+    let html = "";
+    html +=
+      '<article class="cell-row border-b border-base-300 px-2 py-2 hover:bg-base-200/40" data-cell-id="' +
+      id +
+      '" data-cell-type="' +
+      typ +
+      '">';
+    html += '<div class="flex flex-col items-end pt-2 gap-0.5 select-none">';
+    if (isCode) {
+      html +=
+        '<span class="font-code text-[0.6875rem] tabular text-primary font-semibold prompt-in">In&nbsp;[ ]:</span>';
+      html +=
+        '<span class="font-code text-[0.6875rem] tabular text-base-content/50 prompt-out"></span>';
+    } else {
+      html +=
+        '<span class="font-code text-[0.6875rem] text-base-content/50">Md</span>';
+    }
+    html += "</div><div class=\"min-w-0\">";
+    html +=
+      '<div class="flex flex-wrap items-center gap-1 min-h-5 mb-1">';
+    html +=
+      '<span class="text-[0.625rem] uppercase tracking-wide text-base-content/50 font-semibold">' +
+      typ +
+      "</span>";
+    if (isCode) {
+      html +=
+        '<button type="button" class="btn btn-primary btn-xs run" data-cell-id="' +
+        id +
+        '">Run</button>';
+    } else {
+      html +=
+        '<button type="button" class="btn btn-ghost btn-xs md-toggle" data-mode="edit">Preview</button>';
+    }
+    html += '<span class="flex-1"></span>';
+    html +=
+      '<button type="button" class="btn btn-ghost btn-xs btn-square cell-up" data-cell-id="' +
+      id +
+      '" title="Move up">↑</button>';
+    html +=
+      '<button type="button" class="btn btn-ghost btn-xs btn-square cell-down" data-cell-id="' +
+      id +
+      '" title="Move down">↓</button>';
+    html +=
+      '<button type="button" class="btn btn-ghost btn-xs btn-square cell-del text-error" data-cell-id="' +
+      id +
+      '" title="Delete cell">✕</button>';
+    html += "</div>";
+    if (!isCode) {
+      html +=
+        '<div class="md-preview text-sm whitespace-pre-wrap" hidden></div>';
+    }
+    html +=
+      '<div class="cm-host" data-gaderno-editor data-cell-id="' +
+      id +
+      '" data-lang="' +
+      (isCode ? "python" : "markdown") +
+      '"></div>';
+    if (isCode) {
+      html +=
+        '<div class="out-block mt-1.5 p-2 bg-base-100 border border-base-300 rounded-field font-code text-xs whitespace-pre-wrap break-words" hidden></div>';
+    }
+    html += "</div></article>";
+    return html;
+  }
+
+  function applyStructure(cells) {
+    const root = document.getElementById("cells");
+    if (!root || !Array.isArray(cells)) return;
+    // Dedupe by id (last wins order as given, first occurrence kept)
+    const seen = new Set();
+    const unique = [];
+    cells.forEach(function (c) {
+      if (!c || !c.id || seen.has(c.id)) return;
+      seen.add(c.id);
+      unique.push(c);
+    });
+    root.innerHTML = unique.map(buildCellHTML).join("") ||
+      '<p class="text-xs text-base-content/50 p-3">Empty notebook. Use + Code or + Markdown.</p>';
+    api = collab.mountEditors(root);
+  }
+
 
   // Mount collab editors first (empty until Yjs sync fills them)
   api = collab.mountEditors(document.getElementById("cells") || document);
@@ -340,15 +437,7 @@ import { createCollabSession } from "./editor.js";
     }
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function renderKernelList(filter) {
+    function renderKernelList(filter) {
     if (!kernelList) return;
     const q = (filter || "").trim().toLowerCase();
     const groups = (kernelCatalog && kernelCatalog.groups) || {};

@@ -46,6 +46,11 @@
   </header>
 
   <div class="flex flex-1 min-h-0 relative">
+    <div class="flex-1 min-w-0 flex flex-col min-h-0">
+    <div class="shrink-0 flex flex-wrap items-center gap-1 px-2 py-1 border-b border-base-300 bg-base-100">
+      <button type="button" class="btn btn-xs btn-ghost" id="btn-add-code" title="Add code cell">+ Code</button>
+      <button type="button" class="btn btn-xs btn-ghost" id="btn-add-md" title="Add markdown cell">+ Markdown</button>
+    </div>
     <main class="flex-1 min-w-0 overflow-y-auto py-1" id="cells">
       {{ range .Cells }}
       <article class="cell-row border-b border-base-300 px-2 py-2 hover:bg-base-200/40" data-cell-id="{{ .ID }}" data-cell-type="{{ .Type }}">
@@ -65,6 +70,10 @@
             {{ else if eq .Type "markdown" }}
             <button type="button" class="btn btn-ghost btn-xs md-toggle" data-mode="edit">Preview</button>
             {{ end }}
+            <span class="flex-1"></span>
+            <button type="button" class="btn btn-ghost btn-xs btn-square cell-up" data-cell-id="{{ .ID }}" title="Move up">↑</button>
+            <button type="button" class="btn btn-ghost btn-xs btn-square cell-down" data-cell-id="{{ .ID }}" title="Move down">↓</button>
+            <button type="button" class="btn btn-ghost btn-xs btn-square cell-del text-error" data-cell-id="{{ .ID }}" title="Delete cell">✕</button>
           </div>
           {{ if eq .Type "markdown" }}
           <div class="md-preview text-sm whitespace-pre-wrap" hidden></div>
@@ -85,6 +94,7 @@
       <p class="text-xs text-base-content/50 p-3">Empty notebook.</p>
       {{ end }}
     </main>
+    </div>
 
     {{/* Collapsible right sidebar (Docs-style panel) */}}
     <aside
