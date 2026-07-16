@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/lucasew/gaderno/internal/log"
 	"github.com/lucasew/gaderno/internal/session"
 	"github.com/lucasew/gaderno/internal/store"
+	"github.com/lucasew/gaderno/internal/web"
 	"github.com/lucasew/gaderno/internal/workspace"
 )
 
@@ -29,7 +31,13 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	reg := session.NewRegistry(st, root, cfg.Kernel)
 	defer reg.CloseAll(context.Background())
 
+	staticFS, err := fs.Sub(web.Static, "static")
+	if err != nil {
+		return fmt.Errorf("static fs: %w", err)
+	}
+
 	mux := http.NewServeMux()
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok\n"))
@@ -39,7 +47,7 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 		_, _ = fmt.Fprintln(w, version)
 	})
 	registerWorkspaceRoutes(mux, ws, logger)
-	registerNotebookRoutes(mux, st, reg, logger)
+	registerNotebookRoutes(mux, st, reg, cfg.Kernel, logger)
 	registerWS(mux, reg, logger)
 
 	srv := &http.Server{
@@ -78,8 +86,7 @@ func withLogging(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		// skip noisy health
-		if r.URL.Path != "/healthz" {
+		if r.URL.Path != "/healthz" && r.URL.Path != "/static/app.css" && r.URL.Path != "/static/app.js" {
 			logger.Info("http", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
 		}
 	})

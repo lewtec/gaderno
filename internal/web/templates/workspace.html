@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gaderno</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar-brand" href="/">gaderno</a>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-meta">workspace</span>
+  </header>
+  <main class="page">
+    <h1 class="page-title">Notebooks</h1>
+    <p class="page-lead">Open a notebook or create one. Server owns state; kernels run on this host.</p>
+    {{ if .Notebooks }}
+    <table class="nb-table">
+      <thead>
+        <tr><th>Name</th></tr>
+      </thead>
+      <tbody>
+        {{ range .Notebooks }}
+        <tr><td><a href="/n/{{ . }}">{{ . }}</a></td></tr>
+        {{ end }}
+      </tbody>
+    </table>
+    {{ else }}
+    <p class="empty">No notebooks in this workspace yet.</p>
+    {{ end }}
+    <form class="create-row" method="post" action="/api/notebooks">
+      <input type="text" name="name" placeholder="name.ipynb" required aria-label="Notebook file name" autocomplete="off">
+      <button class="btn btn-primary" type="submit">Create</button>
+    </form>
+  </main>
+</body>
+</html>

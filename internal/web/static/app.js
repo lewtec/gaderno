@@ -1,0 +1,168 @@
+/* gaderno notebook client — buttons only, no custom hotkeys */
+(function () {
+  "use strict";
+
+  function $(sel, root) {
+    return (root || document).querySelector(sel);
+  }
+  function $all(sel, root) {
+    return Array.from((root || document).querySelectorAll(sel));
+  }
+
+  const cfg = window.__GADERNO__ || {};
+  const path = cfg.path || "";
+  const statusEl = $("#status-pill");
+  const kernelEl = $("#kernel-pill");
+
+  function setStatus(text, state) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    if (state) statusEl.dataset.state = state;
+  }
+
+  let ws;
+  function connect() {
+    if (!path) return;
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    ws = new WebSocket(proto + "://" + location.host + "/ws/notebooks/" + path);
+    ws.binaryType = "arraybuffer";
+    ws.onopen = function () {
+      setStatus("live", "ok");
+    };
+    ws.onclose = function () {
+      setStatus("offline", "off");
+      setTimeout(connect, 1500);
+    };
+    ws.onerror = function () {
+      setStatus("error", "err");
+    };
+    ws.onmessage = function (ev) {
+      if (typeof ev.data !== "string") return; // yjs binary reserved
+      let msg;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch (_) {
+        return;
+      }
+      if (msg.type === "exec.result") {
+        const cell = document.querySelector('.cell[data-cell-id="' + msg.cell_id + '"]');
+        if (!cell) return;
+        const out = $(".out-block", cell);
+        const prompt = $(".prompt-out", cell);
+        out.hidden = false;
+        out.classList.remove("is-running");
+        out.classList.toggle("is-error", msg.status === "error");
+        let t = "";
+        if (msg.stdout) t += msg.stdout;
+        if (msg.stderr) t += msg.stderr;
+        if (msg.status === "error") {
+          t += (msg.ename || "Error") + ": " + (msg.evalue || "");
+        }
+        if (!t) t = msg.status || "ok";
+        out.textContent = t;
+        if (prompt && msg.execution_count != null) {
+          prompt.textContent = "Out[" + msg.execution_count + "]:";
+        }
+        setStatus("live", "ok");
+        const runBtn = $(".run", cell);
+        if (runBtn) runBtn.disabled = false;
+      } else if (msg.type === "error") {
+        setStatus(msg.text || "error", "err");
+        $all("button.run").forEach(function (b) {
+          b.disabled = false;
+        });
+      } else if (msg.type === "chat.message") {
+        const log = $("#chat-log");
+        if (!log) return;
+        const line = document.createElement("div");
+        line.className = "line";
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = msg.from || "?";
+        line.appendChild(who);
+        line.appendChild(document.createTextNode(msg.text || ""));
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+      }
+    };
+  }
+
+  document.addEventListener("click", function (e) {
+    const run = e.target.closest("button.run");
+    if (run) {
+      const id = run.dataset.cellId;
+      if (!id || !ws || ws.readyState !== 1) {
+        setStatus("not connected", "err");
+        return;
+      }
+      run.disabled = true;
+      setStatus("running", "run");
+      const cell = run.closest(".cell");
+      const out = cell && $(".out-block", cell);
+      if (out) {
+        out.hidden = false;
+        out.classList.add("is-running");
+        out.classList.remove("is-error");
+        out.textContent = "…";
+      }
+      ws.send(JSON.stringify({ type: "exec.run", cell_id: id }));
+      return;
+    }
+
+    const mdToggle = e.target.closest("button.md-toggle");
+    if (mdToggle) {
+      const cell = mdToggle.closest(".cell");
+      if (!cell) return;
+      const preview = $(".md-preview", cell);
+      const source = $(".code-well", cell);
+      if (!preview || !source) return;
+      const editing = mdToggle.dataset.mode === "edit";
+      if (editing) {
+        mdToggle.dataset.mode = "preview";
+        mdToggle.textContent = "Edit";
+        source.hidden = true;
+        preview.hidden = false;
+      } else {
+        mdToggle.dataset.mode = "edit";
+        mdToggle.textContent = "Preview";
+        source.hidden = false;
+        preview.hidden = true;
+      }
+      return;
+    }
+
+    const save = e.target.closest("#btn-save");
+    if (save) {
+      setStatus("saving", "run");
+      fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path }),
+      })
+        .then(function (r) {
+          setStatus(r.ok ? "saved" : "save failed", r.ok ? "ok" : "err");
+          if (r.ok) setTimeout(function () { setStatus("live", "ok"); }, 800);
+        })
+        .catch(function () {
+          setStatus("save failed", "err");
+        });
+    }
+  });
+
+  const chatForm = $("#chat-form");
+  if (chatForm) {
+    chatForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const input = $("#chat-input");
+      const text = (input && input.value || "").trim();
+      if (!text || !ws || ws.readyState !== 1) return;
+      ws.send(JSON.stringify({ type: "chat.send", text: text }));
+      input.value = "";
+    });
+  }
+
+  if (path) connect();
+  if (kernelEl && cfg.kernel) {
+    kernelEl.textContent = cfg.kernel;
+  }
+})();

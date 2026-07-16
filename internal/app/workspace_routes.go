@@ -3,48 +3,24 @@ package app
 import (
 	"encoding/json"
 	"html/template"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
 
+	"github.com/lucasew/gaderno/internal/web"
 	"github.com/lucasew/gaderno/internal/workspace"
 )
 
-var listPage = template.Must(template.New("list").Parse(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>gaderno</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 48rem; }
-    h1 { font-size: 1.25rem; }
-    ul { padding-left: 1.25rem; }
-    a { color: #06c; }
-    .empty { color: #666; }
-    form { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    input[type=text] { flex: 1; min-width: 12rem; padding: 0.4rem 0.5rem; }
-    button { padding: 0.4rem 0.75rem; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <h1>gaderno</h1>
-  <p>Workspace notebooks</p>
-  {{ if .Notebooks }}
-  <ul>
-    {{ range .Notebooks }}
-    <li><a href="/n/{{ . }}">{{ . }}</a></li>
-    {{ end }}
-  </ul>
-  {{ else }}
-  <p class="empty">No notebooks yet.</p>
-  {{ end }}
-  <form method="post" action="/api/notebooks">
-    <input type="text" name="name" placeholder="name.ipynb" required aria-label="Notebook name">
-    <button type="submit">Create</button>
-  </form>
-</body>
-</html>`))
+func loadTemplate(name string) *template.Template {
+	b, err := fs.ReadFile(web.Templates, "templates/"+name)
+	if err != nil {
+		panic(err)
+	}
+	return template.Must(template.New(name).Parse(string(b)))
+}
+
+var listPage = loadTemplate("workspace.html")
 
 func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger *slog.Logger) {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +48,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger
 
 	mux.HandleFunc("POST /api/notebooks", func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
-		if name == "" && r.Header.Get("Content-Type") == "application/json" {
+		if name == "" && strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 			var body struct {
 				Name string `json:"name"`
 			}
@@ -102,5 +78,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger
 
 func wantsHTML(r *http.Request) bool {
 	accept := r.Header.Get("Accept")
-	return strings.Contains(accept, "text/html") || r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" || r.FormValue("name") != ""
+	return strings.Contains(accept, "text/html") ||
+		r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" ||
+		r.FormValue("name") != ""
 }
