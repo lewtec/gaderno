@@ -125,4 +125,8 @@
   .cm-host[data-lang="markdown"] .cm-editor {
     min-height: 6rem;
   }
+
+  .chat-rail {
+    min-height: 0;
+  }
 }

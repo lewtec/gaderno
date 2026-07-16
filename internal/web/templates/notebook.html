@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="gaderno-light">
+<html lang="en" data-theme="gaderno-light" class="h-full">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,8 +18,8 @@
     })();
   </script>
 </head>
-<body class="min-h-screen bg-base-100 text-base-content text-sm pb-28">
-  <header class="navbar g-navbar sticky top-0 z-50 bg-base-200 border-b border-base-300 px-2 sm:px-3 gap-1 sm:gap-2">
+<body class="h-full min-h-0 flex flex-col bg-base-100 text-base-content text-sm overflow-hidden">
+  <header class="navbar g-navbar sticky top-0 z-50 shrink-0 bg-base-200 border-b border-base-300 px-2 sm:px-3 gap-1 sm:gap-2">
     <div class="navbar-start gap-1 min-w-0 flex-1">
       <a href="/" class="btn btn-ghost btn-xs font-bold tracking-tight normal-case shrink-0">gaderno</a>
       <span class="text-base-content/40 shrink-0">·</span>
@@ -38,54 +38,60 @@
     </div>
   </header>
 
-  <main class="py-1" id="cells">
-    {{ range .Cells }}
-    <article class="cell-row border-b border-base-300 px-2 py-2 hover:bg-base-200/40" data-cell-id="{{ .ID }}" data-cell-type="{{ .Type }}">
-      <div class="flex flex-col items-end pt-2 gap-0.5 select-none">
-        {{ if eq .Type "code" }}
-        <span class="font-code text-[0.6875rem] tabular text-primary font-semibold prompt-in">In&nbsp;[ ]:</span>
-        <span class="font-code text-[0.6875rem] tabular text-base-content/50 prompt-out"></span>
-        {{ else }}
-        <span class="font-code text-[0.6875rem] text-base-content/50">Md</span>
-        {{ end }}
-      </div>
-      <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-1 min-h-5 mb-1">
-          <span class="text-[0.625rem] uppercase tracking-wide text-base-content/50 font-semibold">{{ .Type }}</span>
+  <div class="flex flex-1 min-h-0">
+    <main class="flex-1 min-w-0 overflow-y-auto py-1" id="cells">
+      {{ range .Cells }}
+      <article class="cell-row border-b border-base-300 px-2 py-2 hover:bg-base-200/40" data-cell-id="{{ .ID }}" data-cell-type="{{ .Type }}">
+        <div class="flex flex-col items-end pt-2 gap-0.5 select-none">
           {{ if eq .Type "code" }}
-          <button type="button" class="btn btn-primary btn-xs run" data-cell-id="{{ .ID }}">Run</button>
-          {{ else if eq .Type "markdown" }}
-          <button type="button" class="btn btn-ghost btn-xs md-toggle" data-mode="edit">Preview</button>
+          <span class="font-code text-[0.6875rem] tabular text-primary font-semibold prompt-in">In&nbsp;[ ]:</span>
+          <span class="font-code text-[0.6875rem] tabular text-base-content/50 prompt-out"></span>
+          {{ else }}
+          <span class="font-code text-[0.6875rem] text-base-content/50">Md</span>
           {{ end }}
         </div>
-        {{ if eq .Type "markdown" }}
-        <div class="md-preview text-sm whitespace-pre-wrap" hidden></div>
-        {{ end }}
-        <script type="application/json" class="cell-source-json" data-cell-id="{{ .ID }}">{{ .SourceJSON }}</script>
-        <div
-          class="cm-host"
-          data-gaderno-editor
-          data-cell-id="{{ .ID }}"
-          data-lang="{{ if eq .Type "markdown" }}markdown{{ else }}python{{ end }}"
-        ></div>
-        {{ if eq .Type "code" }}
-        <div class="out-block mt-1.5 p-2 bg-base-100 border border-base-300 rounded-field font-code text-xs whitespace-pre-wrap break-words" hidden></div>
-        {{ end }}
-      </div>
-    </article>
-    {{ else }}
-    <p class="text-xs text-base-content/50 p-3">Empty notebook.</p>
-    {{ end }}
-  </main>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-1 min-h-5 mb-1">
+            <span class="text-[0.625rem] uppercase tracking-wide text-base-content/50 font-semibold">{{ .Type }}</span>
+            {{ if eq .Type "code" }}
+            <button type="button" class="btn btn-primary btn-xs run" data-cell-id="{{ .ID }}">Run</button>
+            {{ else if eq .Type "markdown" }}
+            <button type="button" class="btn btn-ghost btn-xs md-toggle" data-mode="edit">Preview</button>
+            {{ end }}
+          </div>
+          {{ if eq .Type "markdown" }}
+          <div class="md-preview text-sm whitespace-pre-wrap" hidden></div>
+          {{ end }}
+          <script type="application/json" class="cell-source-json" data-cell-id="{{ .ID }}">{{ .SourceJSON }}</script>
+          <div
+            class="cm-host"
+            data-gaderno-editor
+            data-cell-id="{{ .ID }}"
+            data-lang="{{ if eq .Type "markdown" }}markdown{{ else }}python{{ end }}"
+          ></div>
+          {{ if eq .Type "code" }}
+          <div class="out-block mt-1.5 p-2 bg-base-100 border border-base-300 rounded-field font-code text-xs whitespace-pre-wrap break-words" hidden></div>
+          {{ end }}
+        </div>
+      </article>
+      {{ else }}
+      <p class="text-xs text-base-content/50 p-3">Empty notebook.</p>
+      {{ end }}
+    </main>
 
-  <footer class="fixed bottom-0 inset-x-0 z-40 bg-base-100 border-t border-base-300 max-h-36 flex flex-col text-xs">
-    <div class="overflow-auto px-3 py-1 max-h-20 text-base-content/60" id="chat-log" aria-live="polite"></div>
-    <form class="flex gap-1.5 px-2 py-1.5 border-t border-base-300" id="chat-form">
-      <input type="text" id="chat-input" placeholder="Session chat (not saved)" aria-label="Chat message" autocomplete="off"
-        class="input input-bordered input-xs flex-1 min-w-0" />
-      <button class="btn btn-xs" type="submit">Send</button>
-    </form>
-  </footer>
+    <aside class="chat-rail shrink-0 flex flex-col border-l border-base-300 bg-base-200/40 w-56 sm:w-64 lg:w-72" aria-label="Session chat">
+      <div class="shrink-0 px-2 py-1.5 border-b border-base-300 flex items-center justify-between gap-1">
+        <span class="text-[0.625rem] uppercase tracking-wide font-semibold text-base-content/50">Chat</span>
+        <span class="text-[0.625rem] text-base-content/40">session · not saved</span>
+      </div>
+      <div class="flex-1 min-h-0 overflow-y-auto px-2 py-1.5 text-xs text-base-content/70" id="chat-log" aria-live="polite"></div>
+      <form class="shrink-0 flex flex-col gap-1 p-2 border-t border-base-300" id="chat-form">
+        <input type="text" id="chat-input" placeholder="Message…" aria-label="Chat message" autocomplete="off"
+          class="input input-bordered input-xs w-full" />
+        <button class="btn btn-xs btn-primary w-full" type="submit">Send</button>
+      </form>
+    </aside>
+  </div>
 
   <script>
     window.__GADERNO__ = {
