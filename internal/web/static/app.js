@@ -283,30 +283,58 @@ import { createCollabSession } from "./editor.js";
   // —— Kernel chooser ——
   const kernelDialog = document.getElementById("kernel-dialog");
   const kernelList = document.getElementById("kernel-list");
+  const kernelFilter = document.getElementById("kernel-filter");
+  const kernelLabel = document.getElementById("kernel-label");
+  const kernelStateDot = document.getElementById("kernel-state-dot");
+  const kernelDialogHint = document.getElementById("kernel-dialog-hint");
   let kernelStatus = {
     needs_kernel: true,
     bound_name: "",
     display_name: "",
     phase: "needs_kernel",
+    running: false,
   };
   let autoOpenedChooser = false;
+  let kernelCatalog = null; // { groups, kernels }
 
   function applyKernelStatus(st) {
     if (!st) return;
     kernelStatus = st;
-    if (btnKernel) {
-      if (st.needs_kernel || !st.bound_name) {
-        btnKernel.textContent = "Select kernel…";
-        btnKernel.classList.add("text-warning");
+    const needs = st.needs_kernel || !st.bound_name;
+    if (kernelLabel) {
+      if (needs) {
+        kernelLabel.textContent = "Select kernel…";
       } else {
-        const label = st.display_name || st.bound_name;
-        const run = st.running ? " · on" : "";
-        btnKernel.textContent = label + run;
-        btnKernel.classList.remove("text-warning");
-        btnKernel.title = st.bound_name + " (" + st.phase + ")";
+        kernelLabel.textContent = st.display_name || st.bound_name;
       }
     }
-    if (st.needs_kernel && kernelDialog && !kernelDialog.open && !autoOpenedChooser) {
+    if (kernelStateDot) {
+      kernelStateDot.className = "badge badge-xs shrink-0";
+      if (needs) {
+        kernelStateDot.classList.add("badge-warning");
+        kernelStateDot.textContent = "pick";
+      } else if (st.running || st.phase === "ready" || st.phase === "busy") {
+        kernelStateDot.classList.add("badge-success");
+        kernelStateDot.textContent = st.phase === "busy" ? "run" : "on";
+      } else if (st.phase === "starting") {
+        kernelStateDot.classList.add("badge-info");
+        kernelStateDot.textContent = "…";
+      } else if (st.phase === "dead") {
+        kernelStateDot.classList.add("badge-error");
+        kernelStateDot.textContent = "err";
+      } else {
+        kernelStateDot.classList.add("badge-ghost");
+        kernelStateDot.textContent = "idle";
+      }
+    }
+    if (btnKernel) {
+      btnKernel.title = needs
+        ? "Choose a kernel before running cells"
+        : (st.bound_name || "") + " · " + (st.phase || "");
+      btnKernel.classList.toggle("btn-warning", !!needs);
+      btnKernel.classList.toggle("btn-ghost", !needs);
+    }
+    if (needs && kernelDialog && !kernelDialog.open && !autoOpenedChooser) {
       autoOpenedChooser = true;
       openKernelChooser();
     }
@@ -320,64 +348,126 @@ import { createCollabSession } from "./editor.js";
       .replace(/"/g, "&quot;");
   }
 
+  function renderKernelList(filter) {
+    if (!kernelList) return;
+    const q = (filter || "").trim().toLowerCase();
+    const groups = (kernelCatalog && kernelCatalog.groups) || {};
+    const order = ["jupyter", "uv"];
+    const titles = { jupyter: "Jupyter", uv: "uv" };
+    const blurb = {
+      jupyter: "Installed kernelspecs on this machine",
+      uv: "Managed by uv (starts with ipykernel on first Run)",
+    };
+
+    let html = "";
+    let shown = 0;
+    order.forEach(function (g) {
+      let items = groups[g] || [];
+      if (q) {
+        items = items.filter(function (k) {
+          const hay = (
+            (k.display_name || "") +
+            " " +
+            (k.name || "") +
+            " " +
+            (k.language || "")
+          ).toLowerCase();
+          return hay.indexOf(q) >= 0;
+        });
+      }
+      if (!items.length) return;
+      html += '<div class="px-1 pt-2 first:pt-1">';
+      html +=
+        '<div class="px-2 pb-1">' +
+        '<div class="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/45">' +
+        titles[g] +
+        "</div>" +
+        '<div class="text-[0.65rem] text-base-content/40 leading-snug">' +
+        blurb[g] +
+        "</div></div>";
+      html += '<ul class="menu menu-sm p-0 gap-0 rounded-none w-full">';
+      items.forEach(function (k) {
+        shown++;
+        const active = kernelStatus.bound_name === k.name;
+        const name = escapeHtml(k.name);
+        const disp = escapeHtml(k.display_name || k.name);
+        const lang = escapeHtml(k.language || "");
+        html += "<li class=\"w-full\">";
+        html +=
+          '<button type="button" class="kernel-pick w-full rounded-none' +
+          (active ? " menu-active" : "") +
+          '" data-name="' +
+          name +
+          '">';
+        html += '<div class="flex items-center gap-2 w-full min-w-0 py-0.5">';
+        html +=
+          '<span class="flex h-4 w-4 shrink-0 items-center justify-center text-[0.7rem]" aria-hidden="true">' +
+          (active ? "✓" : "") +
+          "</span>";
+        html += '<div class="min-w-0 flex-1 text-left">';
+        html +=
+          '<div class="truncate text-xs font-medium leading-tight">' +
+          disp +
+          "</div>";
+        html +=
+          '<div class="truncate font-code text-[0.65rem] text-base-content/45 leading-tight">' +
+          name +
+          "</div>";
+        html += "</div>";
+        if (lang) {
+          html +=
+            '<span class="badge badge-ghost badge-xs shrink-0 font-normal">' +
+            lang +
+            "</span>";
+        }
+        html += "</div></button></li>";
+      });
+      html += "</ul></div>";
+    });
+
+    if (!shown) {
+      html =
+        '<div class="px-4 py-10 text-center text-xs text-base-content/50">' +
+        (q
+          ? "No kernels match “" + escapeHtml(q) + "”."
+          : "No kernels found. Install a Jupyter kernelspec or uv.") +
+        "</div>";
+    }
+    kernelList.innerHTML = html;
+    if (kernelDialogHint) {
+      kernelDialogHint.textContent = shown
+        ? shown + " available"
+        : "Nothing to show";
+    }
+  }
+
   async function openKernelChooser() {
     if (!kernelDialog || !kernelList) return;
+    if (kernelFilter) kernelFilter.value = "";
     kernelList.innerHTML =
-      '<p class="text-base-content/50 px-1 py-2">Loading…</p>';
+      '<div class="flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs">' +
+      '<span class="loading loading-spinner loading-xs"></span>Loading kernels…</div>';
     kernelDialog.showModal();
+    if (kernelFilter) setTimeout(function () { kernelFilter.focus(); }, 50);
     try {
       const r = await fetch("/api/kernels");
-      const data = await r.json();
-      const groups = data.groups || {};
-      const order = ["jupyter", "uv"];
-      const titles = { jupyter: "Jupyter", uv: "uv" };
-      let html = "";
-      let any = false;
-      order.forEach(function (g) {
-        const items = groups[g] || [];
-        if (!items.length) return;
-        any = true;
-        html += '<div class="mb-2">';
-        html +=
-          '<div class="text-[0.625rem] uppercase tracking-wide font-semibold text-base-content/45 px-1 py-1">' +
-          titles[g] +
-          "</div>";
-        items.forEach(function (k) {
-          const sel =
-            kernelStatus.bound_name === k.name
-              ? " border-primary bg-primary/10"
-              : "";
-          html +=
-            '<button type="button" class="kernel-pick btn btn-ghost btn-sm w-full justify-start font-normal h-auto min-h-0 py-1.5 px-2 mb-0.5 border border-transparent' +
-            sel +
-            '" data-name="' +
-            escapeHtml(k.name) +
-            '">';
-          html +=
-            '<span class="truncate text-left"><span class="font-medium">' +
-            escapeHtml(k.display_name || k.name) +
-            "</span>";
-          html +=
-            '<span class="block text-[0.625rem] text-base-content/45 font-code">' +
-            escapeHtml(k.name) +
-            "</span></span></button>";
-        });
-        html += "</div>";
-      });
-      if (!any) {
-        html =
-          '<p class="text-base-content/50 px-1 py-2">No kernels found. Install a Jupyter kernelspec or <span class="font-code">uv</span>.</p>';
-      }
-      kernelList.innerHTML = html;
+      if (!r.ok) throw new Error("load failed");
+      kernelCatalog = await r.json();
+      renderKernelList("");
     } catch (e) {
       kernelList.innerHTML =
-        '<p class="text-error px-1 py-2">Failed to load kernels</p>';
+        '<div class="px-4 py-10 text-center text-xs text-error">Could not load kernels.</div>';
     }
   }
 
   if (btnKernel) {
     btnKernel.addEventListener("click", function () {
       openKernelChooser();
+    });
+  }
+  if (kernelFilter) {
+    kernelFilter.addEventListener("input", function () {
+      renderKernelList(kernelFilter.value);
     });
   }
   if (kernelList) {
@@ -387,6 +477,9 @@ import { createCollabSession } from "./editor.js";
       const name = b.getAttribute("data-name");
       if (!name) return;
       b.disabled = true;
+      const prev = b.innerHTML;
+      b.innerHTML =
+        '<span class="loading loading-spinner loading-xs"></span><span class="text-xs">Binding…</span>';
       fetch("/api/kernel/bind", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -402,7 +495,7 @@ import { createCollabSession } from "./editor.js";
         .then(function (st) {
           applyKernelStatus(st);
           if (kernelDialog) kernelDialog.close();
-          setStatus("kernel bound", "ok");
+          setStatus("kernel ready", "ok");
           setTimeout(function () {
             setStatus("live", "ok");
           }, 600);
@@ -410,6 +503,7 @@ import { createCollabSession } from "./editor.js";
         .catch(function (err) {
           setStatus(String(err.message || err), "err");
           b.disabled = false;
+          b.innerHTML = prev;
         });
     });
   }
