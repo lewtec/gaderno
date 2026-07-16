@@ -1,4 +1,4 @@
-import { mountEditors } from "./editor.js";
+import { createCollabSession } from "./editor.js";
 
 (function () {
   "use strict";
@@ -15,9 +15,7 @@ import { mountEditors } from "./editor.js";
   const statusEl = $("#status-pill");
   const btnKernel = $("#btn-kernel");
 
-  // Debounce timers per cell
-  const pending = new Map();
-  const remoteApplying = new Set();
+  const collab = createCollabSession();
   let api = null;
   let ws = null;
 
@@ -37,32 +35,15 @@ import { mountEditors } from "./editor.js";
     return true;
   }
 
-  function flushSource(cellId) {
-    if (!api) return "";
-    const source = api.getSource(cellId);
-    sendJSON({ type: "cell.set_source", cell_id: cellId, source: source });
-    const t = pending.get(cellId);
-    if (t) {
-      clearTimeout(t);
-      pending.delete(cellId);
-    }
-    return source;
+  function sendBinary(u8) {
+    if (!ws || ws.readyState !== 1) return false;
+    ws.send(u8);
+    return true;
   }
 
-  function scheduleSource(cellId, source) {
-    if (remoteApplying.has(cellId)) return;
-    setStatus("editing…", "run");
-    const prev = pending.get(cellId);
-    if (prev) clearTimeout(prev);
-    pending.set(
-      cellId,
-      setTimeout(function () {
-        pending.delete(cellId);
-        if (sendJSON({ type: "cell.set_source", cell_id: cellId, source: source })) {
-          // ack updates status
-        }
-      }, 200)
-    );
+  function flushSource(cellId) {
+    if (!api) return "";
+    return api.getSource(cellId);
   }
 
   function connect() {
@@ -72,6 +53,10 @@ import { mountEditors } from "./editor.js";
     ws.binaryType = "arraybuffer";
     ws.onopen = function () {
       setStatus("live", "ok");
+      collab.attachTransport({
+        sendBinary: sendBinary,
+        sendJSON: sendJSON,
+      });
     };
     ws.onclose = function () {
       setStatus("offline", "off");
@@ -81,6 +66,10 @@ import { mountEditors } from "./editor.js";
       setStatus("error", "err");
     };
     ws.onmessage = function (ev) {
+      if (ev.data instanceof ArrayBuffer) {
+        collab.handleSyncMessage(new Uint8Array(ev.data));
+        return;
+      }
       if (typeof ev.data !== "string") return;
       let msg;
       try {
@@ -88,19 +77,8 @@ import { mountEditors } from "./editor.js";
       } catch (_) {
         return;
       }
-      if (msg.type === "cell.source_ack") {
-        setStatus("live", "ok");
-      } else if (msg.type === "cell.source") {
-        if (!api || !msg.cell_id) return;
-        remoteApplying.add(msg.cell_id);
-        try {
-          api.setSource(msg.cell_id, msg.source || "");
-        } finally {
-          // allow next tick so CM updateListener does not echo
-          setTimeout(function () {
-            remoteApplying.delete(msg.cell_id);
-          }, 0);
-        }
+      if (msg.type === "awareness" && msg.update) {
+        collab.handleAwarenessB64(msg.update);
       } else if (msg.type === "exec.clear") {
         const cell = document.querySelector(
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
@@ -143,7 +121,6 @@ import { mountEditors } from "./editor.js";
           if (msg.status === "error") {
             out.classList.add("border-error", "bg-error/10", "text-error");
           }
-          // Prefer full buffers from result (authoritative); if empty keep streamed text
           let t = "";
           if (msg.stdout) t += msg.stdout;
           if (msg.stderr) t += msg.stderr;
@@ -183,10 +160,8 @@ import { mountEditors } from "./editor.js";
     };
   }
 
-  // Mount editors
-  api = mountEditors(document.getElementById("cells") || document, {
-    onChange: scheduleSource,
-  });
+  // Mount collab editors first (empty until Yjs sync fills them)
+  api = collab.mountEditors(document.getElementById("cells") || document);
 
   document.addEventListener("click", function (e) {
     const run = e.target.closest("button.run");
@@ -207,7 +182,6 @@ import { mountEditors } from "./editor.js";
         out.classList.add("border-info", "text-info");
         out.textContent = "…";
       }
-      // flush source on run so kernel sees latest
       sendJSON({ type: "exec.run", cell_id: id, source: source });
       return;
     }
@@ -222,7 +196,6 @@ import { mountEditors } from "./editor.js";
       if (!preview || !host) return;
       const editing = mdToggle.dataset.mode === "edit";
       if (editing) {
-        // switch to preview
         mdToggle.dataset.mode = "preview";
         mdToggle.textContent = "Edit";
         preview.textContent = api.getSource(id);
@@ -240,25 +213,19 @@ import { mountEditors } from "./editor.js";
 
     const save = e.target.closest("#btn-save");
     if (save) {
-      // flush all editors first
-      $all("[data-gaderno-editor]").forEach(function (host) {
-        flushSource(host.getAttribute("data-cell-id"));
-      });
       setStatus("saving", "run");
-      setTimeout(function () {
-        fetch("/api/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path: path }),
+      fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path }),
+      })
+        .then(function (r) {
+          setStatus(r.ok ? "saved" : "save failed", r.ok ? "ok" : "err");
+          if (r.ok) setTimeout(function () { setStatus("live", "ok"); }, 800);
         })
-          .then(function (r) {
-            setStatus(r.ok ? "saved" : "save failed", r.ok ? "ok" : "err");
-            if (r.ok) setTimeout(function () { setStatus("live", "ok"); }, 800);
-          })
-          .catch(function () {
-            setStatus("save failed", "err");
-          });
-      }, 50);
+        .catch(function () {
+          setStatus("save failed", "err");
+        });
     }
   });
 
@@ -274,8 +241,7 @@ import { mountEditors } from "./editor.js";
     });
   }
 
-
-  // —— Collapsible chat sidebar (Docs-style) ——
+  // —— Collapsible chat sidebar ——
   const chatRail = document.getElementById("chat-rail");
   const btnChat = document.getElementById("btn-chat");
   const btnChatClose = document.getElementById("btn-chat-close");
@@ -304,20 +270,26 @@ import { mountEditors } from "./editor.js";
   }
 
   if (btnChat) btnChat.addEventListener("click", toggleChat);
-  if (btnChatClose) btnChatClose.addEventListener("click", function () { setChatOpen(false); });
-
-  // Restore preference (default closed — more room for editors)
+  if (btnChatClose)
+    btnChatClose.addEventListener("click", function () {
+      setChatOpen(false);
+    });
   try {
     setChatOpen(localStorage.getItem(CHAT_KEY) === "1");
   } catch (_) {
     setChatOpen(false);
   }
 
-
   // —— Kernel chooser ——
   const kernelDialog = document.getElementById("kernel-dialog");
   const kernelList = document.getElementById("kernel-list");
-  let kernelStatus = { needs_kernel: true, bound_name: "", display_name: "", phase: "needs_kernel" };
+  let kernelStatus = {
+    needs_kernel: true,
+    bound_name: "",
+    display_name: "",
+    phase: "needs_kernel",
+  };
+  let autoOpenedChooser = false;
 
   function applyKernelStatus(st) {
     if (!st) return;
@@ -334,15 +306,24 @@ import { mountEditors } from "./editor.js";
         btnKernel.title = st.bound_name + " (" + st.phase + ")";
       }
     }
-    if (st.needs_kernel && kernelDialog && !kernelDialog.open) {
-      // auto-open chooser once when needed
+    if (st.needs_kernel && kernelDialog && !kernelDialog.open && !autoOpenedChooser) {
+      autoOpenedChooser = true;
       openKernelChooser();
     }
   }
 
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   async function openKernelChooser() {
     if (!kernelDialog || !kernelList) return;
-    kernelList.innerHTML = '<p class="text-base-content/50 px-1 py-2">Loading…</p>';
+    kernelList.innerHTML =
+      '<p class="text-base-content/50 px-1 py-2">Loading…</p>';
     kernelDialog.showModal();
     try {
       const r = await fetch("/api/kernels");
@@ -357,35 +338,41 @@ import { mountEditors } from "./editor.js";
         if (!items.length) return;
         any = true;
         html += '<div class="mb-2">';
-        html += '<div class="text-[0.625rem] uppercase tracking-wide font-semibold text-base-content/45 px-1 py-1">' + titles[g] + "</div>";
+        html +=
+          '<div class="text-[0.625rem] uppercase tracking-wide font-semibold text-base-content/45 px-1 py-1">' +
+          titles[g] +
+          "</div>";
         items.forEach(function (k) {
-          const sel = kernelStatus.bound_name === k.name ? " border-primary bg-primary/10" : "";
+          const sel =
+            kernelStatus.bound_name === k.name
+              ? " border-primary bg-primary/10"
+              : "";
           html +=
             '<button type="button" class="kernel-pick btn btn-ghost btn-sm w-full justify-start font-normal h-auto min-h-0 py-1.5 px-2 mb-0.5 border border-transparent' +
             sel +
             '" data-name="' +
-            k.name.replace(/"/g, "&quot;") +
+            escapeHtml(k.name) +
             '">';
-          html += '<span class="truncate text-left"><span class="font-medium">' + escapeHtml(k.display_name || k.name) + "</span>";
-          html += '<span class="block text-[0.625rem] text-base-content/45 font-code">' + escapeHtml(k.name) + "</span></span></button>";
+          html +=
+            '<span class="truncate text-left"><span class="font-medium">' +
+            escapeHtml(k.display_name || k.name) +
+            "</span>";
+          html +=
+            '<span class="block text-[0.625rem] text-base-content/45 font-code">' +
+            escapeHtml(k.name) +
+            "</span></span></button>";
         });
         html += "</div>";
       });
       if (!any) {
-        html = '<p class="text-base-content/50 px-1 py-2">No kernels found. Install a Jupyter kernelspec or <span class="font-code">uv</span>.</p>';
+        html =
+          '<p class="text-base-content/50 px-1 py-2">No kernels found. Install a Jupyter kernelspec or <span class="font-code">uv</span>.</p>';
       }
       kernelList.innerHTML = html;
     } catch (e) {
-      kernelList.innerHTML = '<p class="text-error px-1 py-2">Failed to load kernels</p>';
+      kernelList.innerHTML =
+        '<p class="text-error px-1 py-2">Failed to load kernels</p>';
     }
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
   }
 
   if (btnKernel) {
@@ -406,14 +393,19 @@ import { mountEditors } from "./editor.js";
         body: JSON.stringify({ path: path, name: name }),
       })
         .then(function (r) {
-          if (!r.ok) return r.text().then(function (t) { throw new Error(t || r.statusText); });
+          if (!r.ok)
+            return r.text().then(function (t) {
+              throw new Error(t || r.statusText);
+            });
           return r.json();
         })
         .then(function (st) {
           applyKernelStatus(st);
           if (kernelDialog) kernelDialog.close();
           setStatus("kernel bound", "ok");
-          setTimeout(function () { setStatus("live", "ok"); }, 600);
+          setTimeout(function () {
+            setStatus("live", "ok");
+          }, 600);
         })
         .catch(function (err) {
           setStatus(String(err.message || err), "err");
@@ -422,6 +414,5 @@ import { mountEditors } from "./editor.js";
     });
   }
 
-  // patch message handler additions via monkey - insert into onmessage by replacing
   if (path) connect();
 })();

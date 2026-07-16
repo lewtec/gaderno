@@ -27,6 +27,7 @@ type wsControl struct {
 	Text   string `json:"text,omitempty"`
 	Source string `json:"source,omitempty"`
 	Name   string `json:"name,omitempty"`
+	Update string `json:"update,omitempty"` // base64 awareness payload
 }
 
 func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) {
@@ -47,7 +48,7 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 		defer hub.RemoveClient(clientID)
 		defer conn.Close()
 
-		// Single writer: all outbound frames go through client.Out (gorilla/websocket is not concurrent-safe).
+		// Single writer goroutine — gorilla/websocket is not concurrent-safe.
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -93,6 +94,11 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 				if err := json.Unmarshal(data, &ctrl); err != nil {
 					continue
 				}
+				// Awareness: pass through raw JSON so "update" is preserved.
+				if ctrl.Type == "awareness" {
+					hub.BroadcastJSON(data, clientID)
+					continue
+				}
 				handleControl(hub, client, clientID, ctrl, logger)
 			}
 		}
@@ -116,6 +122,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 		})
 		hub.BroadcastJSON(b, "")
 	case "cell.set_source":
+		// Legacy full-cell replace (still used as Run flush safety).
 		if ctrl.CellID == "" {
 			sendErr(client, "cell_id required")
 			return
@@ -142,13 +149,10 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 		}
 	case "exec.run":
 		go func() {
-			// Always prefer client buffer when provided (including empty string after clear).
-			// Use presence of cell_id + explicit source field via separate flag — if Source is sent, apply.
-			// Clients always send source on run.
-			if ctrl.CellID != "" {
+			// Prefer live CRDT text; client source is a flush backup.
+			if ctrl.CellID != "" && ctrl.Source != "" {
 				_ = hub.SetCellSource(ctrl.CellID, ctrl.Source, clientID)
 			}
-			// Long-lived exec context (not tied to a short HTTP request)
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 			if err := hub.EnsureKernel(ctx, ""); err != nil {
