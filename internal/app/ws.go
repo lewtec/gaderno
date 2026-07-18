@@ -29,9 +29,10 @@ type wsControl struct {
 	Name      string `json:"name,omitempty"`
 	Update    string `json:"update,omitempty"` // base64 awareness payload
 	Index     *int   `json:"index,omitempty"`
-	Code      string `json:"code,omitempty"`
-	CursorPos *int   `json:"cursor_pos,omitempty"`
-	ReqID     string `json:"req_id,omitempty"`
+	Code        string `json:"code,omitempty"`
+	CursorPos   *int   `json:"cursor_pos,omitempty"`
+	ReqID       string `json:"req_id,omitempty"`
+	DetailLevel *int   `json:"detail_level,omitempty"`
 }
 
 func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) {
@@ -313,6 +314,55 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				"matches":      res.Matches,
 				"cursor_start": res.CursorStart,
 				"cursor_end":   res.CursorEnd,
+			})
+			select {
+			case client.Out <- session.Outbound{Data: b}:
+			default:
+			}
+		}()
+	case "inspect.request":
+		// Hover / signature help — reply only to originator.
+		go func() {
+			code := ctrl.Code
+			if code == "" {
+				code = ctrl.Source
+			}
+			pos := 0
+			if ctrl.CursorPos != nil {
+				pos = *ctrl.CursorPos
+			} else if len(code) > 0 {
+				pos = len(code)
+			}
+			detail := 0
+			if ctrl.DetailLevel != nil {
+				detail = *ctrl.DetailLevel
+			}
+			reqID := ctrl.ReqID
+			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			defer cancel()
+			res, err := hub.Inspect(ctx, code, pos, detail)
+			if err != nil {
+				b, _ := json.Marshal(map[string]any{
+					"type":         "inspect.reply",
+					"req_id":       reqID,
+					"status":       "error",
+					"found":        false,
+					"text":         err.Error(),
+					"detail_level": detail,
+				})
+				select {
+				case client.Out <- session.Outbound{Data: b}:
+				default:
+				}
+				return
+			}
+			b, _ := json.Marshal(map[string]any{
+				"type":         "inspect.reply",
+				"req_id":       reqID,
+				"status":       res.Status,
+				"found":        res.Found,
+				"text":         res.Text,
+				"detail_level": res.DetailLevel,
 			})
 			select {
 			case client.Out <- session.Outbound{Data: b}:

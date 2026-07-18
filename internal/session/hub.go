@@ -391,6 +391,18 @@ func (h *Hub) Complete(ctx context.Context, code string, cursorPos int) (kernel.
 	return k.Complete(ctx, code, cursorPos)
 }
 
+// Inspect asks the live kernel for hover docs / signature help at cursorPos.
+// detailLevel: 0 abbreviated, 1 full. No auto-spawn (same as Complete).
+func (h *Hub) Inspect(ctx context.Context, code string, cursorPos, detailLevel int) (kernel.InspectResult, error) {
+	h.mu.Lock()
+	k := h.kernel
+	h.mu.Unlock()
+	if k == nil {
+		return kernel.InspectResult{Status: "no_kernel", Found: false, DetailLevel: detailLevel}, nil
+	}
+	return k.Inspect(ctx, code, cursorPos, detailLevel)
+}
+
 // ExecuteCell runs a cell by id (kernel must already be started).
 // onStream may be nil; when set, called for each stdout/stderr chunk.
 func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kernel.StreamChunk)) (kernel.ExecuteResult, error) {

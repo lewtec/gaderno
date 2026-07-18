@@ -606,6 +606,30 @@
     color: var(--color-base-content) !important;
     border-color: var(--color-base-300) !important;
   }
+  /* Kernel inspect (hover docs + signature help) */
+  .cm-kernel-inspect {
+    max-width: min(36rem, 90vw);
+    max-height: 16rem;
+    overflow: auto;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+  .cm-kernel-inspect-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    color: var(--color-base-content);
+  }
+  .cm-kernel-signature {
+    max-height: 6rem;
+    border-left: 2px solid var(--color-primary);
+    padding-left: 0.55rem;
+  }
+  .cm-kernel-signature .cm-kernel-inspect-body {
+    font-weight: 500;
+  }
 
   .out-block {
     margin-top: 0.5rem;

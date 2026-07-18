@@ -297,8 +297,13 @@ import { createCollabSession } from "./editor.js";
         line.appendChild(document.createTextNode(msg.text || ""));
         log.appendChild(line);
         log.scrollTop = log.scrollHeight;
-      } else if (msg.type === "complete.reply") {
-        if (typeof collab.handleCompleteReply === "function") {
+      } else if (
+        msg.type === "complete.reply" ||
+        msg.type === "inspect.reply"
+      ) {
+        if (typeof collab.handleRPCReply === "function") {
+          collab.handleRPCReply(msg);
+        } else if (typeof collab.handleCompleteReply === "function") {
           collab.handleCompleteReply(msg);
         }
       }
