@@ -212,29 +212,22 @@ import { createCollabSession } from "./editor.js";
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
         );
         if (!cell) return;
-        cell._streamBuf = { stdout: "", stderr: "" };
-        const out = $(".out-block", cell);
-        if (out) {
-          out.hidden = false;
-          out.textContent = "";
-          out.classList.remove("is-error");
-          out.classList.add("is-running");
-        }
+        clearCellOutput(cell, true);
       } else if (msg.type === "exec.stream") {
         const cell = document.querySelector(
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
         );
         if (!cell) return;
-        const out = $(".out-block", cell);
-        if (out) {
-          if (!cell._streamBuf) cell._streamBuf = { stdout: "", stderr: "" };
-          const name = msg.name === "stderr" ? "stderr" : "stdout";
-          cell._streamBuf[name] = msg.text || "";
-          out.hidden = false;
-          out.classList.add("is-running");
-          out.textContent =
-            (cell._streamBuf.stdout || "") + (cell._streamBuf.stderr || "");
-        }
+        if (!cell._streamBuf) cell._streamBuf = { stdout: "", stderr: "" };
+        const name = msg.name === "stderr" ? "stderr" : "stdout";
+        cell._streamBuf[name] = msg.text || "";
+        renderStreams(cell, true);
+      } else if (msg.type === "exec.display") {
+        const cell = document.querySelector(
+          '.cell-row[data-cell-id="' + msg.cell_id + '"]'
+        );
+        if (!cell) return;
+        appendDisplay(cell, msg);
       } else if (msg.type === "exec.result") {
         const cell = document.querySelector(
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
@@ -244,7 +237,7 @@ import { createCollabSession } from "./editor.js";
           stdout: msg.stdout || "",
           stderr: msg.stderr || "",
         };
-        const out = $(".out-block", cell);
+        const out = ensureOutBlock(cell);
         const countEl = $(".cell-exec-count", cell);
         const play = $(".cell-play", cell);
         cell.classList.remove("is-running");
@@ -255,13 +248,19 @@ import { createCollabSession } from "./editor.js";
           out.classList.remove("is-running");
           if (msg.status === "error") out.classList.add("is-error");
           else out.classList.remove("is-error");
-          let t = "";
-          if (msg.stdout) t += msg.stdout;
-          if (msg.stderr) t += msg.stderr;
-          if (msg.status === "error")
-            t += (msg.ename || "Error") + ": " + (msg.evalue || "");
-          if (t) out.textContent = t;
-          else if (!out.textContent) out.textContent = msg.status || "ok";
+        }
+        renderStreams(cell, false);
+        if (msg.status === "error") {
+          setErrorLine(
+            cell,
+            (msg.ename || "Error") + ": " + (msg.evalue || "")
+          );
+        } else {
+          clearErrorLine(cell);
+        }
+        // Empty success with no streams/displays: keep block minimal
+        if (out && !out.children.length) {
+          out.hidden = true;
         }
         if (countEl && msg.execution_count != null) {
           countEl.textContent = "[" + msg.execution_count + "]";
@@ -308,6 +307,224 @@ import { createCollabSession } from "./editor.js";
         }
       }
     };
+  }
+
+  // —— Cell outputs (streams + mime displays) ——
+  function trustKey() {
+    return "gaderno.trusted:" + (path || "");
+  }
+  function isNotebookTrusted() {
+    try {
+      return localStorage.getItem(trustKey()) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+  function setNotebookTrusted(on) {
+    try {
+      if (on) localStorage.setItem(trustKey(), "1");
+      else localStorage.removeItem(trustKey());
+    } catch (_) {}
+    // Re-render HTML displays under current trust.
+    $all(".out-display[data-has-html='1']").forEach(function (el) {
+      const raw = el.getAttribute("data-html");
+      const host = $(".out-display-html-slot", el);
+      if (!host) return;
+      host.replaceChildren();
+      if (on && raw) {
+        const box = document.createElement("div");
+        box.className = "out-display-html";
+        box.innerHTML = raw;
+        host.appendChild(box);
+      } else if (raw) {
+        const gate = document.createElement("div");
+        gate.className = "out-display-gated";
+        gate.textContent =
+          "HTML output hidden — enable “Trust HTML outputs” in the menu.";
+        host.appendChild(gate);
+      }
+    });
+  }
+
+  function ensureOutBlock(cell) {
+    if (!cell) return null;
+    let out = $(".out-block", cell);
+    if (!out) {
+      out = document.createElement("div");
+      out.className = "out-block";
+      out.hidden = true;
+      const body = $(".cell-body", cell) || cell;
+      body.appendChild(out);
+    }
+    return out;
+  }
+
+  function clearCellOutput(cell, running) {
+    cell._streamBuf = { stdout: "", stderr: "" };
+    const out = ensureOutBlock(cell);
+    if (!out) return;
+    out.replaceChildren();
+    out.hidden = false;
+    out.classList.remove("is-error");
+    if (running) out.classList.add("is-running");
+    else out.classList.remove("is-running");
+  }
+
+  function ensureStreamEl(out, kind) {
+    let el = $(":scope > .out-stream.out-" + kind, out);
+    if (!el) {
+      el = document.createElement("pre");
+      el.className = "out-stream out-" + kind;
+      // streams first: insert before first display if any
+      const firstDisplay = $(":scope > .out-display", out);
+      if (firstDisplay) out.insertBefore(el, firstDisplay);
+      else out.appendChild(el);
+    }
+    return el;
+  }
+
+  function renderStreams(cell, running) {
+    const out = ensureOutBlock(cell);
+    if (!out) return;
+    out.hidden = false;
+    if (running) out.classList.add("is-running");
+    const buf = cell._streamBuf || { stdout: "", stderr: "" };
+    if (buf.stdout) {
+      const el = ensureStreamEl(out, "stdout");
+      el.textContent = buf.stdout;
+    } else {
+      const el = $(":scope > .out-stream.out-stdout", out);
+      if (el) el.remove();
+    }
+    if (buf.stderr) {
+      const el = ensureStreamEl(out, "stderr");
+      el.textContent = buf.stderr;
+    } else {
+      const el = $(":scope > .out-stream.out-stderr", out);
+      if (el) el.remove();
+    }
+  }
+
+  function setErrorLine(cell, text) {
+    const out = ensureOutBlock(cell);
+    if (!out) return;
+    out.hidden = false;
+    let el = $(":scope > .out-stream.out-error", out);
+    if (!el) {
+      el = document.createElement("pre");
+      el.className = "out-stream out-error";
+      out.appendChild(el);
+    }
+    el.textContent = text || "";
+  }
+
+  function clearErrorLine(cell) {
+    const out = $(".out-block", cell);
+    if (!out) return;
+    const el = $(":scope > .out-stream.out-error", out);
+    if (el) el.remove();
+  }
+
+  function mimeString(data, mime) {
+    if (!data || data[mime] == null) return "";
+    const v = data[mime];
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v.join("");
+    return String(v);
+  }
+
+  function stripDataURLPrefix(s) {
+    // Some kernels already send data:image/png;base64,...
+    const m = /^data:[^;]+;base64,(.+)$/i.exec(s);
+    return m ? m[1] : s;
+  }
+
+  function appendDisplay(cell, msg) {
+    const out = ensureOutBlock(cell);
+    if (!out) return;
+    out.hidden = false;
+    out.classList.add("is-running");
+    const data = msg.data || {};
+    const wrap = document.createElement("div");
+    wrap.className = "out-display";
+
+    const png = mimeString(data, "image/png");
+    const jpeg = mimeString(data, "image/jpeg") || mimeString(data, "image/jpg");
+    const gif = mimeString(data, "image/gif");
+    const svg = mimeString(data, "image/svg+xml");
+    const plain = mimeString(data, "text/plain");
+    const html = mimeString(data, "text/html");
+
+    let renderedRich = false;
+
+    if (png || jpeg || gif) {
+      const img = document.createElement("img");
+      img.alt = plain || "output image";
+      if (png) img.src = "data:image/png;base64," + stripDataURLPrefix(png);
+      else if (jpeg)
+        img.src = "data:image/jpeg;base64," + stripDataURLPrefix(jpeg);
+      else img.src = "data:image/gif;base64," + stripDataURLPrefix(gif);
+      wrap.appendChild(img);
+      renderedRich = true;
+    } else if (svg) {
+      // SVG as image via data URL (safer than inline for untrusted)
+      const img = document.createElement("img");
+      img.alt = plain || "output svg";
+      try {
+        img.src =
+          "data:image/svg+xml;base64," +
+          btoa(unescape(encodeURIComponent(svg)));
+      } catch (_) {
+        img.src =
+          "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      }
+      wrap.appendChild(img);
+      renderedRich = true;
+    }
+
+    if (html) {
+      wrap.setAttribute("data-has-html", "1");
+      wrap.setAttribute("data-html", html);
+      const slot = document.createElement("div");
+      slot.className = "out-display-html-slot";
+      if (isNotebookTrusted()) {
+        const box = document.createElement("div");
+        box.className = "out-display-html";
+        box.innerHTML = html;
+        slot.appendChild(box);
+        renderedRich = true;
+      } else {
+        const gate = document.createElement("div");
+        gate.className = "out-display-gated";
+        gate.textContent =
+          "HTML output hidden — enable “Trust HTML outputs” in the menu.";
+        slot.appendChild(gate);
+      }
+      wrap.appendChild(slot);
+    }
+
+    // Always show text/plain when present (alongside images), except pure
+    // matplotlib figure placeholders if we already rendered an image.
+    if (plain) {
+      const isFigPlaceholder =
+        renderedRich && /^<Figure\b/i.test(plain.trim());
+      if (!isFigPlaceholder) {
+        const pre = document.createElement("pre");
+        pre.className = "out-display-plain";
+        pre.textContent = plain;
+        wrap.appendChild(pre);
+      }
+    }
+
+    if (!wrap.children.length) {
+      const pre = document.createElement("pre");
+      pre.className = "out-display-plain";
+      pre.textContent =
+        "(" + (msg.output_type || "display") + ": no renderable mime)";
+      wrap.appendChild(pre);
+    }
+
+    out.appendChild(wrap);
   }
 
   function insertGapHTML(beforeId) {
@@ -583,13 +800,7 @@ import { createCollabSession } from "./editor.js";
       const source = flushSource(id);
       const cell = play.closest(".cell-row");
       if (cell) cell.classList.add("is-running");
-      const out = cell && $(".out-block", cell);
-      if (out) {
-        out.hidden = false;
-        out.classList.remove("is-error");
-        out.classList.add("is-running");
-        out.textContent = "…";
-      }
+      if (cell) clearCellOutput(cell, true);
       sendJSON({ type: "exec.run", cell_id: id, source: source });
       return;
     }
@@ -897,6 +1108,14 @@ import { createCollabSession } from "./editor.js";
       openKernelChooser();
     });
   }
+  const menuTrust = $("#menu-trust");
+  if (menuTrust) {
+    menuTrust.checked = isNotebookTrusted();
+    menuTrust.addEventListener("change", function () {
+      setNotebookTrusted(!!menuTrust.checked);
+    });
+  }
+
   const menuForceSave = $("#menu-force-save");
   if (menuForceSave) {
     menuForceSave.addEventListener("click", function () {

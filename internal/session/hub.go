@@ -404,8 +404,8 @@ func (h *Hub) Inspect(ctx context.Context, code string, cursorPos, detailLevel i
 }
 
 // ExecuteCell runs a cell by id (kernel must already be started).
-// onStream may be nil; when set, called for each stdout/stderr chunk.
-func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kernel.StreamChunk)) (kernel.ExecuteResult, error) {
+// onStream / onDisplay may be nil.
+func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kernel.StreamChunk), onDisplay func(kernel.DisplayData)) (kernel.ExecuteResult, error) {
 	h.mu.Lock()
 	k := h.kernel
 	src := h.Doc.Source(cellID)
@@ -426,7 +426,8 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	h.BroadcastJSON(b0, "")
 
 	res, err := k.ExecuteOpts(ctx, src, kernel.ExecuteOpts{
-		OnStream: onStream,
+		OnStream:  onStream,
+		OnDisplay: onDisplay,
 	})
 
 	h.mu.Lock()

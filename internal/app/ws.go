@@ -249,15 +249,29 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				sendErr(client, err.Error())
 				return
 			}
-			res, err := hub.ExecuteCell(ctx, ctrl.CellID, func(ch kernel.StreamChunk) {
-				b, _ := json.Marshal(map[string]any{
-					"type":    "exec.stream",
-					"cell_id": ctrl.CellID,
-					"name":    ch.Name,
-					"text":    ch.Text,
-				})
-				hub.BroadcastJSON(b, "")
-			})
+			res, err := hub.ExecuteCell(ctx, ctrl.CellID,
+				func(ch kernel.StreamChunk) {
+					b, _ := json.Marshal(map[string]any{
+						"type":    "exec.stream",
+						"cell_id": ctrl.CellID,
+						"name":    ch.Name,
+						"text":    ch.Text,
+					})
+					hub.BroadcastJSON(b, "")
+				},
+				func(dd kernel.DisplayData) {
+					// Full mime bundle — client chooses renderers.
+					b, _ := json.Marshal(map[string]any{
+						"type":        "exec.display",
+						"cell_id":     ctrl.CellID,
+						"output_type": dd.OutputType,
+						"data":        dd.Data,
+						"metadata":    dd.Metadata,
+						"transient":   dd.Transient,
+					})
+					hub.BroadcastJSON(b, "")
+				},
+			)
 			if err != nil {
 				sendErr(client, err.Error())
 				return

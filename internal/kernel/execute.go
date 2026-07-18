@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -24,10 +25,27 @@ type StreamChunk struct {
 	Text string
 }
 
+// DisplayData is one display_data / execute_result mime bundle for the client.
+// Data keys are mime types; values are JSON-friendly (strings, usually).
+type DisplayData struct {
+	OutputType string         `json:"output_type"` // display_data | execute_result
+	Data       map[string]any `json:"data"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	// Transient is Jupyter transient metadata (e.g. display_id); optional.
+	Transient map[string]any `json:"transient,omitempty"`
+}
+
+// MaxDisplayBytes is a soft per-mime payload cap (decoded character length).
+// Oversized mimes are dropped and noted in text/plain.
+const MaxDisplayBytes = 12 << 20 // 12 MiB
+
 // ExecuteOpts configures execute behavior.
 type ExecuteOpts struct {
 	// OnStream is called for each IOPub stream chunk (may be nil).
 	OnStream func(StreamChunk)
+	// OnDisplay is called for each display_data / execute_result (may be nil).
+	// The client decides rendering; server does not turn mimes into HTML here.
+	OnDisplay func(DisplayData)
 }
 
 // Execute runs code on the kernel and collects IOPub until idle for this msg.
@@ -151,19 +169,31 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 					}
 				}
 			case "execute_result", "display_data":
-				if data, ok := msg.Content["data"].(map[string]any); ok {
-					if tp, ok := data["text/plain"]; ok {
-						text := multilineContent(tp)
-						if text == "" {
-							continue
-						}
-						outTerm.Write(text)
-						res.Stdout = outTerm.String()
-						if opts.OnStream != nil {
-							opts.OnStream(StreamChunk{Name: "stdout", Text: res.Stdout})
-						}
-					}
+				dd := DisplayData{
+					OutputType: msg.Header.MsgType,
+					Data:       normalizeMimeBundle(msg.Content["data"]),
 				}
+				if md, ok := msg.Content["metadata"].(map[string]any); ok {
+					dd.Metadata = md
+				}
+				if tr, ok := msg.Content["transient"].(map[string]any); ok {
+					dd.Transient = tr
+				}
+				if len(dd.Data) == 0 {
+					continue
+				}
+				// Keep a plain-text breadcrumb in stdout for logs / untrusted clients.
+				if tp, ok := dd.Data["text/plain"].(string); ok && tp != "" {
+					// Don't also dump figure placeholders into the stream UI if we
+					// already ship the full bundle — only for result summary.
+					_ = tp
+				}
+				if opts.OnDisplay != nil {
+					opts.OnDisplay(dd)
+				}
+			case "clear_output":
+				// Client handles rebuild; we don't push a dedicated event yet.
+				// Wait for next display_data.
 			}
 		}
 	}
@@ -203,10 +233,51 @@ func multilineContent(v any) string {
 			s += fmt.Sprint(x)
 		}
 		return s
+	case []string:
+		return strings.Join(t, "")
 	default:
 		if v == nil {
 			return ""
 		}
 		return fmt.Sprint(v)
 	}
+}
+
+// normalizeMimeBundle flattens Jupyter mime values (string | []string) and
+// drops oversized payloads so a single PNG can't blow up the WebSocket.
+func normalizeMimeBundle(raw any) map[string]any {
+	src, ok := raw.(map[string]any)
+	if !ok || len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(src))
+	var dropped []string
+	for mime, v := range src {
+		s := multilineContent(v)
+		if s == "" {
+			// Keep non-string JSON mimes (e.g. application/json objects).
+			switch v.(type) {
+			case map[string]any, []any, float64, bool:
+				out[mime] = v
+			}
+			continue
+		}
+		if len(s) > MaxDisplayBytes {
+			dropped = append(dropped, mime)
+			continue
+		}
+		out[mime] = s
+	}
+	if len(dropped) > 0 {
+		note := "[gaderno: omitted oversized mime: " + strings.Join(dropped, ", ") + "]"
+		if existing, ok := out["text/plain"].(string); ok && existing != "" {
+			out["text/plain"] = existing + "\n" + note
+		} else {
+			out["text/plain"] = note
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

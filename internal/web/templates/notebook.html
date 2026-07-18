@@ -50,6 +50,12 @@
           <li><button type="button" class="theme-set" data-theme="gaderno-dark">Dark</button></li>
           <li class="menu-title text-xs">Notebook</li>
           <li><button type="button" id="menu-kernel">Kernel…</button></li>
+          <li>
+            <label class="flex items-center gap-2 cursor-pointer px-1 py-1">
+              <input type="checkbox" id="menu-trust" class="checkbox checkbox-xs" />
+              <span>Trust HTML outputs</span>
+            </label>
+          </li>
           <li><button type="button" id="menu-force-save">Force save</button></li>
           <li><a href="/api/notebooks/{{ .Path }}?download=1" id="menu-export">Export .ipynb</a></li>
           <li class="menu-title text-xs">About</li>
