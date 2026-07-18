@@ -90,6 +90,81 @@ func TestSessionIDDistinctPerOpen(t *testing.T) {
 	}
 }
 
+func TestOutputsFromExecute(t *testing.T) {
+	res := kernel.ExecuteResult{
+		Status:         "ok",
+		ExecutionCount: 2,
+		Stdout:         "hi\n",
+	}
+	displays := []kernel.DisplayData{
+		{
+			OutputType: "execute_result",
+			Data:       map[string]any{"text/plain": "1"},
+		},
+	}
+	outs := outputsFromExecute(res, displays)
+	if len(outs) != 2 {
+		t.Fatalf("len=%d %#v", len(outs), outs)
+	}
+	if outs[0].OutputType != "stream" || outs[0].Name != "stdout" {
+		t.Fatalf("out0 %#v", outs[0])
+	}
+	if outs[1].OutputType != "execute_result" {
+		t.Fatalf("out1 %#v", outs[1])
+	}
+	if outs[1].ExecutionCount == nil || *outs[1].ExecutionCount != 2 {
+		t.Fatalf("execute_result count %#v", outs[1].ExecutionCount)
+	}
+
+	errRes := kernel.ExecuteResult{Status: "error", Ename: "E", Evalue: "v", ExecutionCount: 3}
+	eouts := outputsFromExecute(errRes, nil)
+	if len(eouts) != 1 || eouts[0].OutputType != "error" {
+		t.Fatalf("error outs %#v", eouts)
+	}
+}
+
+func TestExecuteCellRecordsOutputsInCRDT(t *testing.T) {
+	// Without a live kernel ExecuteCell returns early — exercise clear/apply
+	// helpers via Doc the same way ExecuteCell does after a run.
+	dir := t.TempDir()
+	st := store.New(dir)
+	nb := document.NewEmpty()
+	nb.Cells[0].Source = document.NewMultiline("print(1)")
+	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close(context.Background())
+	id := h.Doc.CellIDs()[0]
+
+	if err := h.Doc.ClearCellOutputs(id); err != nil {
+		t.Fatal(err)
+	}
+	res := kernel.ExecuteResult{Status: "ok", ExecutionCount: 1, Stdout: "1\n"}
+	if err := h.Doc.ApplyCellExecution(id, outputsFromExecute(res, nil), execCountPtr(res), cellStatusFromExecute(res)); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Save(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Load(context.Background(), "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Cells[0].ExecutionCount == nil || *got.Cells[0].ExecutionCount != 1 {
+		t.Fatalf("saved execution_count=%v", got.Cells[0].ExecutionCount)
+	}
+	if len(got.Cells[0].Outputs) != 1 || got.Cells[0].Outputs[0].OutputType != "stream" {
+		t.Fatalf("saved outputs %#v", got.Cells[0].Outputs)
+	}
+	if txt := got.Cells[0].Outputs[0].Text.String(); txt != "1\n" {
+		t.Fatalf("stream %q", txt)
+	}
+}
+
 func TestClientNotReadyBlocksSync(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
