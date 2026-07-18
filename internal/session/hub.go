@@ -405,6 +405,10 @@ func (h *Hub) Inspect(ctx context.Context, code string, cursorPos, detailLevel i
 
 // ExecuteCell runs a cell by id (kernel must already be started).
 // onStream / onDisplay may be nil.
+//
+// Server is king for execution-derived fields (SPEC): clear + apply outputs and
+// execution_count into the CRDT so Save/Export/reopen match the live run. WS
+// fan-out remains for low-latency UI; CRDT is the durable projection source.
 func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kernel.StreamChunk), onDisplay func(kernel.DisplayData)) (kernel.ExecuteResult, error) {
 	h.mu.Lock()
 	k := h.kernel
@@ -418,17 +422,29 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)
 
-	// clear outputs signal
+	// Server transaction first so ProjectNotebook cannot race with a mid-run save.
+	_ = h.Doc.ClearCellOutputs(cellID)
 	b0, _ := json.Marshal(map[string]any{
 		"type":    "exec.clear",
 		"cell_id": cellID,
 	})
 	h.BroadcastJSON(b0, "")
 
+	var displays []kernel.DisplayData
 	res, err := k.ExecuteOpts(ctx, src, kernel.ExecuteOpts{
-		OnStream:  onStream,
-		OnDisplay: onDisplay,
+		OnStream: onStream,
+		OnDisplay: func(dd kernel.DisplayData) {
+			displays = append(displays, dd)
+			if onDisplay != nil {
+				onDisplay(dd)
+			}
+		},
 	})
+
+	// Always project whatever we got (including abort/timeout partial streams).
+	if applyErr := h.Doc.ApplyCellExecution(cellID, outputsFromExecute(res, displays), execCountPtr(res), cellStatusFromExecute(res)); applyErr == nil {
+		h.scheduleSave()
+	}
 
 	h.mu.Lock()
 	if h.kernel != nil {
@@ -438,6 +454,73 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)
 	return res, err
+}
+
+func execCountPtr(res kernel.ExecuteResult) *int {
+	if res.ExecutionCount == 0 && res.Status != "ok" && res.Status != "error" {
+		// Abort/timeout with no reply often leaves 0; omit so we do not invent In[0].
+		return nil
+	}
+	n := res.ExecutionCount
+	return &n
+}
+
+func cellStatusFromExecute(res kernel.ExecuteResult) string {
+	if res.Status == "error" {
+		return "error"
+	}
+	return "idle"
+}
+
+// outputsFromExecute builds nbformat outputs from an execute result + displays.
+// Order is approximate (streams, then mime displays, then error) — fine for v1
+// persistence; live UI already saw interleaved IOPub via WS callbacks.
+func outputsFromExecute(res kernel.ExecuteResult, displays []kernel.DisplayData) []document.Output {
+	var outs []document.Output
+	if res.Stdout != "" {
+		outs = append(outs, document.Output{
+			OutputType: "stream",
+			Name:       "stdout",
+			Text:       document.NewMultiline(res.Stdout),
+		})
+	}
+	if res.Stderr != "" {
+		outs = append(outs, document.Output{
+			OutputType: "stream",
+			Name:       "stderr",
+			Text:       document.NewMultiline(res.Stderr),
+		})
+	}
+	for _, dd := range displays {
+		ot := dd.OutputType
+		if ot == "" {
+			ot = "display_data"
+		}
+		o := document.Output{
+			OutputType: ot,
+			Data:       dd.Data,
+			Metadata:   dd.Metadata,
+			Transient:  dd.Transient,
+		}
+		if ot == "execute_result" && res.ExecutionCount != 0 {
+			n := res.ExecutionCount
+			o.ExecutionCount = &n
+		}
+		outs = append(outs, o)
+	}
+	if res.Status == "error" || res.Ename != "" {
+		outs = append(outs, document.Output{
+			OutputType: "error",
+			Ename:      res.Ename,
+			Evalue:     res.Evalue,
+			// Traceback not collected on the simplified ExecuteResult path yet.
+			Traceback: []string{},
+		})
+	}
+	if outs == nil {
+		outs = []document.Output{}
+	}
+	return outs
 }
 
 // AddClient registers a peer (not Ready until hello.ack).

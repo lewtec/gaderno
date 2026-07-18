@@ -310,6 +310,51 @@ func (n *NotebookDoc) SetCellType(cellID string, cellType document.CellType) err
 	}, OriginServer)
 }
 
+// ClearCellOutputs wipes outputs and execution_count and marks the cell running.
+// Server-only path used at the start of execute (SPEC: dequeue clears outputs).
+func (n *NotebookDoc) ClearCellOutputs(cellID string) error {
+	if cellID == "" {
+		return fmt.Errorf("empty cell id")
+	}
+	cellData := n.Doc.GetMap(RootCellData)
+	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
+		cellData.Set(txn, cellID+".outputs_json", "[]")
+		cellData.Set(txn, cellID+".status", "running")
+		cellData.Delete(txn, cellID+".execution_count")
+		return nil
+	}, OriginServer)
+}
+
+// ApplyCellExecution records server-owned execute results into the CRDT so
+// ProjectNotebook / Save / Export keep streams, displays, errors, and counts.
+// status is idle | error (nbformat cell chrome, not kernel phase).
+func (n *NotebookDoc) ApplyCellExecution(cellID string, outputs []document.Output, execCount *int, status string) error {
+	if cellID == "" {
+		return fmt.Errorf("empty cell id")
+	}
+	if status == "" {
+		status = "idle"
+	}
+	if outputs == nil {
+		outputs = []document.Output{}
+	}
+	raw, err := json.Marshal(outputs)
+	if err != nil {
+		return err
+	}
+	cellData := n.Doc.GetMap(RootCellData)
+	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
+		cellData.Set(txn, cellID+".outputs_json", string(raw))
+		cellData.Set(txn, cellID+".status", status)
+		if execCount != nil {
+			cellData.Set(txn, cellID+".execution_count", float64(*execCount))
+		} else {
+			cellData.Delete(txn, cellID+".execution_count")
+		}
+		return nil
+	}, OriginServer)
+}
+
 // CellSnapshot is a JSON-friendly cell for structure broadcasts / UI rebuild.
 type CellSnapshot struct {
 	ID     string `json:"id"`
