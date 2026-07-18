@@ -12,21 +12,34 @@ import { createCollabSession } from "./editor.js";
 
   const cfg = window.__GADERNO__ || {};
   const path = cfg.path || "";
-  const statusEl = $("#status-pill");
-  const btnKernel = $("#btn-kernel");
+  const sessionDot = $("#session-dot");
+  const sessionLabel = $("#session-label");
+  const btnSession = $("#btn-session");
 
+  const NAME_KEY = "gaderno-display-name";
   const collab = createCollabSession();
   let api = null;
   let ws = null;
 
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function setStatus(text, state) {
-    if (!statusEl) return;
-    statusEl.textContent = text;
-    statusEl.className = "badge badge-xs";
-    if (state === "ok") statusEl.classList.add("badge-success");
-    else if (state === "run") statusEl.classList.add("badge-info");
-    else if (state === "err") statusEl.classList.add("badge-error");
-    else statusEl.classList.add("badge-ghost");
+    if (sessionDot) sessionDot.setAttribute("data-state", state || "off");
+    if (sessionLabel) sessionLabel.textContent = text || "";
+    if (btnSession) {
+      const needs = kernelStatus && (kernelStatus.needs_kernel || !kernelStatus.bound_name);
+      let title = text || "Session";
+      if (needs) title += " · choose kernel";
+      else if (kernelStatus && kernelStatus.bound_name)
+        title += " · " + (kernelStatus.display_name || kernelStatus.bound_name);
+      btnSession.title = title;
+    }
   }
 
   function sendJSON(obj) {
@@ -46,9 +59,62 @@ import { createCollabSession } from "./editor.js";
     return api.getSource(cellId);
   }
 
+  // —— Display name / avatar ——
+  function getDisplayName() {
+    try {
+      return (localStorage.getItem(NAME_KEY) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function setDisplayName(name) {
+    const n = String(name || "").trim().slice(0, 40);
+    try {
+      if (n) localStorage.setItem(NAME_KEY, n);
+      else localStorage.removeItem(NAME_KEY);
+    } catch (_) {}
+    updateAvatar(n);
+    if (api && typeof collab.setUserName === "function") {
+      collab.setUserName(n || undefined);
+    }
+  }
+
+  function updateAvatar(name) {
+    const el = $("#user-avatar");
+    if (!el) return;
+    const n = (name || getDisplayName() || "?").trim();
+    el.textContent = (n[0] || "?").toUpperCase();
+  }
+
+  const nameInput = $("#display-name");
+  if (nameInput) {
+    nameInput.value = getDisplayName();
+    nameInput.addEventListener("change", function () {
+      setDisplayName(nameInput.value);
+    });
+    nameInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        setDisplayName(nameInput.value);
+        const d = nameInput.closest("details");
+        if (d) d.open = false;
+      }
+    });
+  }
+  updateAvatar();
+
+  $all(".theme-set").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const t = b.getAttribute("data-theme");
+      if (window.gadernoSetTheme) window.gadernoSetTheme(t);
+      const d = b.closest("details");
+      if (d) d.open = false;
+    });
+  });
+
   // Per-tab hub lifetime fence (SPEC: session identity).
   const sessionStorageKey = "gaderno.session:" + path;
-  // True only after hello accepted and hello.ack sent for the current socket.
   let sessionReady = false;
 
   function connect() {
@@ -61,24 +127,22 @@ import { createCollabSession } from "./editor.js";
     ws = sock;
     sock.binaryType = "arraybuffer";
     sock.onopen = function () {
-      // Do NOT attach Yjs yet — wait for hello so we never push a previous
-      // Y.Doc into a recreated hub before the session fence runs.
-      setStatus("connecting", "off");
+      setStatus("Connecting", "run");
     };
     sock.onclose = function () {
-      if (ws !== sock) return; // superseded
+      if (ws !== sock) return;
       sessionReady = false;
-      setStatus("offline", "off");
+      setStatus("Offline", "off");
       setTimeout(connect, 1500);
     };
     sock.onerror = function () {
       if (ws !== sock) return;
-      setStatus("error", "err");
+      setStatus("Error", "err");
     };
     sock.onmessage = function (ev) {
-      if (ws !== sock) return; // ignore events from a previous socket
+      if (ws !== sock) return;
       if (ev.data instanceof ArrayBuffer) {
-        if (!sessionReady) return; // drop CRDT until session fence passes
+        if (!sessionReady) return;
         collab.handleSyncMessage(new Uint8Array(ev.data));
         return;
       }
@@ -90,11 +154,9 @@ import { createCollabSession } from "./editor.js";
         return;
       }
       if (msg.type === "hello") {
-        // "Am I connecting to the same session I was in before?"
         const prev = sessionStorage.getItem(sessionStorageKey);
         const sid = msg.session_id || "";
         if (prev && sid && prev !== sid) {
-          // Different hub life: hard reset BEFORE any CRDT traffic.
           sessionStorage.setItem(sessionStorageKey, sid);
           try {
             sock.close();
@@ -103,14 +165,15 @@ import { createCollabSession } from "./editor.js";
           return;
         }
         if (sid) sessionStorage.setItem(sessionStorageKey, sid);
-        // Ack first (server will send sync step1 only after this), then attach.
         sessionReady = true;
         sendJSON({ type: "hello.ack", session_id: sid });
         collab.attachTransport({
           sendBinary: sendBinary,
           sendJSON: sendJSON,
         });
-        setStatus("live", "ok");
+        const dn = getDisplayName();
+        if (dn && typeof collab.setUserName === "function") collab.setUserName(dn);
+        setStatus("Live", "ok");
         return;
       }
       if (!sessionReady) return;
@@ -128,8 +191,8 @@ import { createCollabSession } from "./editor.js";
         if (out) {
           out.hidden = false;
           out.textContent = "";
-          out.classList.remove("border-error", "bg-error/10", "text-error");
-          out.classList.add("border-info", "text-info");
+          out.classList.remove("is-error");
+          out.classList.add("is-running");
         }
       } else if (msg.type === "exec.stream") {
         const cell = document.querySelector(
@@ -138,12 +201,11 @@ import { createCollabSession } from "./editor.js";
         if (!cell) return;
         const out = $(".out-block", cell);
         if (out) {
-          // Server sends full filtered stream so far (not a raw append delta).
           if (!cell._streamBuf) cell._streamBuf = { stdout: "", stderr: "" };
           const name = msg.name === "stderr" ? "stderr" : "stdout";
           cell._streamBuf[name] = msg.text || "";
           out.hidden = false;
-          out.classList.add("border-info", "text-info");
+          out.classList.add("is-running");
           out.textContent =
             (cell._streamBuf.stdout || "") + (cell._streamBuf.stderr || "");
         }
@@ -157,19 +219,16 @@ import { createCollabSession } from "./editor.js";
           stderr: msg.stderr || "",
         };
         const out = $(".out-block", cell);
-        const prompt = $(".prompt-out", cell);
+        const countEl = $(".cell-exec-count", cell);
+        const play = $(".cell-play", cell);
+        cell.classList.remove("is-running");
+        if (msg.status === "error") cell.classList.add("is-error");
+        else cell.classList.remove("is-error");
         if (out) {
           out.hidden = false;
-          out.classList.remove(
-            "border-info",
-            "text-info",
-            "border-error",
-            "bg-error/10",
-            "text-error"
-          );
-          if (msg.status === "error") {
-            out.classList.add("border-error", "bg-error/10", "text-error");
-          }
+          out.classList.remove("is-running");
+          if (msg.status === "error") out.classList.add("is-error");
+          else out.classList.remove("is-error");
           let t = "";
           if (msg.stdout) t += msg.stdout;
           if (msg.stderr) t += msg.stderr;
@@ -178,16 +237,23 @@ import { createCollabSession } from "./editor.js";
           if (t) out.textContent = t;
           else if (!out.textContent) out.textContent = msg.status || "ok";
         }
-        if (prompt && msg.execution_count != null) {
-          prompt.textContent = "Out[" + msg.execution_count + "]:";
+        if (countEl && msg.execution_count != null) {
+          countEl.textContent = "[" + msg.execution_count + "]";
+          countEl.setAttribute("data-count", String(msg.execution_count));
         }
-        setStatus("live", "ok");
-        const runBtn = $(".run", cell);
-        if (runBtn) runBtn.disabled = false;
+        setStatus("Live", "ok");
+        if (play) {
+          play.disabled = false;
+          play.classList.remove("is-running");
+        }
       } else if (msg.type === "error") {
-        setStatus(msg.text || "error", "err");
-        $all("button.run").forEach(function (b) {
+        setStatus(msg.text || "Error", "err");
+        $all("button.cell-play").forEach(function (b) {
           b.disabled = false;
+          b.classList.remove("is-running");
+        });
+        $all(".cell-row.is-running").forEach(function (c) {
+          c.classList.remove("is-running");
         });
       } else if (msg.type === "kernel.status") {
         applyKernelStatus(msg.status);
@@ -197,9 +263,9 @@ import { createCollabSession } from "./editor.js";
         const log = $("#chat-log");
         if (!log) return;
         const line = document.createElement("div");
-        line.className = "py-0.5";
+        line.className = "py-1";
         const who = document.createElement("span");
-        who.className = "font-code font-semibold text-primary mr-1";
+        who.className = "font-code font-semibold text-primary mr-1.5";
         who.textContent = msg.from || "?";
         line.appendChild(who);
         line.appendChild(document.createTextNode(msg.text || ""));
@@ -209,13 +275,22 @@ import { createCollabSession } from "./editor.js";
     };
   }
 
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+  function insertGapHTML(beforeId) {
+    const attr = beforeId
+      ? ' data-insert-before="' + escapeHtml(beforeId) + '"'
+      : " data-insert-end";
+    return (
+      '<div class="cell-insert' +
+      (beforeId ? "" : " cell-insert-end") +
+      '"' +
+      attr +
+      ' role="group" aria-label="Insert cell">' +
+      '<button type="button" class="cell-insert-btn" data-type="code" title="Insert code cell" aria-label="Insert code cell">' +
+      '<span aria-hidden="true">+</span><span class="cell-insert-label">Code</span></button>' +
+      '<button type="button" class="cell-insert-btn" data-type="markdown" title="Insert markdown cell" aria-label="Insert markdown cell">' +
+      '<span aria-hidden="true">+</span><span class="cell-insert-label">Markdown</span></button>' +
+      "</div>"
+    );
   }
 
   function buildCellHTML(c) {
@@ -224,51 +299,41 @@ import { createCollabSession } from "./editor.js";
     const isCode = typ === "code";
     let html = "";
     html +=
-      '<article class="cell-row border-b border-base-300 px-2 py-2 hover:bg-base-200/40" data-cell-id="' +
+      '<article class="cell-row" data-cell-id="' +
       id +
       '" data-cell-type="' +
       typ +
       '">';
-    html += '<div class="flex flex-col items-end pt-2 gap-0.5 select-none">';
+    html += '<div class="cell-gutter">';
     if (isCode) {
       html +=
-        '<span class="font-code text-[0.6875rem] tabular text-primary font-semibold prompt-in">In&nbsp;[ ]:</span>';
-      html +=
-        '<span class="font-code text-[0.6875rem] tabular text-base-content/50 prompt-out"></span>';
+        '<button type="button" class="cell-play run" data-cell-id="' +
+        id +
+        '" title="Run cell" aria-label="Run cell">' +
+        '<svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>' +
+        '<span class="loading loading-spinner loading-xs play-spin" hidden></span>' +
+        "</button>" +
+        '<span class="cell-exec-count font-code tabular" data-count></span>';
     } else {
       html +=
-        '<span class="font-code text-[0.6875rem] text-base-content/50">Md</span>';
+        '<span class="cell-md-mark" title="Markdown" aria-hidden="true">¶</span>';
     }
-    html += '</div><div class="min-w-0">';
+    html += "</div>";
+    html += '<div class="cell-body min-w-0">';
     html +=
-      '<div class="flex flex-wrap items-center gap-1 min-h-7 mb-1">';
-    if (isCode) {
-      html +=
-        '<button type="button" class="btn btn-primary btn-xs run shrink-0" data-cell-id="' +
-        id +
-        '">Run</button>';
-    }
-    html +=
-      '<div role="tablist" class="tabs tabs-box tabs-xs shrink-0">' +
-      '<button type="button" role="tab" class="tab cell-type-tab' +
-      (isCode ? " tab-active" : "") +
-      '" data-cell-id="' +
+      '<div class="cell-toolbar"><span class="flex-1"></span>' +
+      '<details class="dropdown dropdown-end cell-menu">' +
+      '<summary class="g-icon-btn g-icon-btn-sm" title="Cell menu" aria-label="Cell menu">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>' +
+      "</summary>" +
+      '<ul class="menu dropdown-content bg-base-100 rounded-box z-50 w-44 p-1 shadow-md border border-base-300 text-xs">' +
+      '<li><button type="button" class="cell-type-set" data-cell-id="' +
       id +
-      '" data-type="code">Code</button>' +
-      '<button type="button" role="tab" class="tab cell-type-tab' +
-      (!isCode ? " tab-active" : "") +
-      '" data-cell-id="' +
+      '" data-type="code">Type: Code</button></li>' +
+      '<li><button type="button" class="cell-type-set" data-cell-id="' +
       id +
-      '" data-type="markdown">Markdown</button></div>';
-    if (!isCode) {
-      html +=
-        '<button type="button" class="btn btn-ghost btn-xs md-toggle shrink-0" data-mode="edit">Preview</button>';
-    }
-    html += '<span class="flex-1 min-w-1"></span>';
-    html +=
-      '<details class="dropdown dropdown-end shrink-0">' +
-      '<summary class="btn btn-ghost btn-xs btn-square" title="Cell menu" aria-label="Cell menu">···</summary>' +
-      '<ul class="menu dropdown-content bg-base-100 rounded-box z-50 w-40 p-1 shadow border border-base-300 text-xs">' +
+      '" data-type="markdown">Type: Markdown</button></li>' +
+      '<li><hr class="my-0.5 border-base-300"></li>' +
       '<li><button type="button" class="cell-up" data-cell-id="' +
       id +
       '">Move up</button></li>' +
@@ -279,30 +344,86 @@ import { createCollabSession } from "./editor.js";
       '<li><button type="button" class="cell-del text-error" data-cell-id="' +
       id +
       '">Delete</button></li>' +
-      "</ul></details>";
-    html += "</div>";
+      "</ul></details></div>";
     if (!isCode) {
       html +=
-        '<div class="md-preview text-sm whitespace-pre-wrap" hidden></div>';
+        '<div class="md-preview" tabindex="0" role="button" aria-label="Edit markdown"></div>';
     }
     html +=
-      '<div class="cm-host" data-gaderno-editor data-cell-id="' +
+      '<div class="cm-host' +
+      (isCode ? "" : " is-md-edit") +
+      '" data-gaderno-editor data-cell-id="' +
       id +
       '" data-lang="' +
       (isCode ? "python" : "markdown") +
-      '"></div>';
+      '"' +
+      (isCode ? "" : " hidden") +
+      "></div>";
     if (isCode) {
-      html +=
-        '<div class="out-block mt-1.5 p-2 bg-base-100 border border-base-300 rounded-field font-code text-xs whitespace-pre-wrap break-words" hidden></div>';
+      html += '<div class="out-block" hidden></div>';
     }
     html += "</div></article>";
     return html;
   }
 
+  function syncMarkdownPreviews(root) {
+    if (!api) return;
+    $all('.cell-row[data-cell-type="markdown"]', root || document).forEach(
+      function (cell) {
+        const id = cell.getAttribute("data-cell-id");
+        const preview = $(".md-preview", cell);
+        const host = $("[data-gaderno-editor]", cell);
+        if (!preview || !host || !host.hidden) return;
+        preview.textContent = api.getSource(id) || "";
+      }
+    );
+  }
+
+  function enterMarkdownEdit(cell) {
+    if (!cell || !api) return;
+    const id = cell.getAttribute("data-cell-id");
+    const preview = $(".md-preview", cell);
+    const host = $("[data-gaderno-editor]", cell);
+    if (!preview || !host) return;
+    preview.hidden = true;
+    host.hidden = false;
+    api.focus(id);
+  }
+
+  function exitMarkdownEdit(cell) {
+    if (!cell || !api) return;
+    const id = cell.getAttribute("data-cell-id");
+    const preview = $(".md-preview", cell);
+    const host = $("[data-gaderno-editor]", cell);
+    if (!preview || !host) return;
+    preview.textContent = api.getSource(id) || "";
+    preview.hidden = false;
+    host.hidden = true;
+  }
+
+  function rebuildInsertGaps(root) {
+    // Remove existing gaps then reinsert around cells
+    $all(".cell-insert", root).forEach(function (g) {
+      g.remove();
+    });
+    const rows = $all(":scope > .cell-row", root);
+    if (rows.length === 0) return;
+    rows.forEach(function (row) {
+      const id = row.getAttribute("data-cell-id");
+      const tmp = document.createElement("div");
+      tmp.innerHTML = insertGapHTML(id);
+      const gap = tmp.firstElementChild;
+      if (gap) root.insertBefore(gap, row);
+    });
+    const tmpEnd = document.createElement("div");
+    tmpEnd.innerHTML = insertGapHTML(null);
+    const end = tmpEnd.firstElementChild;
+    if (end) root.appendChild(end);
+  }
+
   function applyStructure(cells) {
     const root = document.getElementById("cells");
     if (!root || !Array.isArray(cells)) return;
-    // Dedupe by id (first occurrence kept)
     const seen = new Set();
     const unique = [];
     cells.forEach(function (c) {
@@ -310,19 +431,23 @@ import { createCollabSession } from "./editor.js";
       seen.add(c.id);
       unique.push(c);
     });
+
+    $all(":scope > :not(.cell-row)", root).forEach(function (el) {
+      el.remove();
+    });
+
     if (unique.length === 0) {
       root.innerHTML =
-        '<p class="text-xs text-base-content/50 p-3">Empty notebook. Use + Code or + Markdown.</p>';
+        '<div class="g-empty g-empty-cells" id="empty-notebook">' +
+        '<p class="font-medium">Empty notebook</p>' +
+        '<p class="text-sm text-base-content/55 mt-1 mb-4">Add a first cell to begin.</p>' +
+        '<div class="flex flex-wrap gap-2 justify-center">' +
+        '<button type="button" class="btn btn-primary btn-sm gap-1" id="btn-first-code"><span aria-hidden="true">+</span> Code</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm gap-1" id="btn-first-md"><span aria-hidden="true">+</span> Markdown</button>' +
+        "</div></div>";
       api = collab.mountEditors(root);
       return;
     }
-
-    // Map current rows. Reuse id+type matches so editors/out-blocks survive.
-    // Critical: reorder with insertBefore under #cells — never DocumentFragment
-    // (detaching CodeMirror from the document breaks the views).
-    $all(":scope > :not(.cell-row)", root).forEach(function (el) {
-      el.remove(); // drop empty-state placeholders etc.
-    });
 
     const byId = new Map();
     $all(".cell-row", root).forEach(function (el) {
@@ -358,117 +483,136 @@ import { createCollabSession } from "./editor.js";
       }
     });
 
-    // In-document reorder only (insertBefore on an already-attached child).
     unique.forEach(function (c, i) {
       const el = byId.get(c.id);
       if (!el || el.parentNode !== root) return;
-      const ref = root.children[i];
+      // children include only cell-rows at this point
+      const rows = $all(":scope > .cell-row", root);
+      const ref = rows[i];
       if (ref !== el) {
         root.insertBefore(el, ref || null);
       }
     });
 
+    rebuildInsertGaps(root);
     api = collab.mountEditors(root);
+    syncMarkdownPreviews(root);
   }
 
-
-  // Mount collab editors first (empty until Yjs sync fills them)
+  // Initial mount
   api = collab.mountEditors(document.getElementById("cells") || document);
+  syncMarkdownPreviews(document.getElementById("cells"));
+
+  // Seed markdown previews from SSR JSON if collab not yet filled
+  $all(".cell-row[data-cell-type='markdown']").forEach(function (cell) {
+    const id = cell.getAttribute("data-cell-id");
+    const preview = $(".md-preview", cell);
+    const jsonEl = $('.cell-source-json[data-cell-id="' + id + '"]', cell) ||
+      $('.cell-source-json[data-cell-id="' + id + '"]');
+    if (!preview || preview.textContent) return;
+    if (jsonEl) {
+      try {
+        preview.textContent = JSON.parse(jsonEl.textContent || '""') || "";
+      } catch (_) {}
+    }
+  });
+
+  function closeMenus() {
+    document.querySelectorAll("details.dropdown[open]").forEach(function (d) {
+      d.open = false;
+    });
+  }
+
+  function insertCell(type, index) {
+    sendJSON({ type: "cell.insert", text: type, index: index });
+  }
+
+  function indexOfCell(id) {
+    const rows = $all("#cells .cell-row");
+    return rows.findIndex(function (r) {
+      return r.getAttribute("data-cell-id") === id;
+    });
+  }
 
   document.addEventListener("click", function (e) {
-    const run = e.target.closest("button.run");
-    if (run) {
-      const id = run.dataset.cellId;
+    const play = e.target.closest("button.cell-play, button.run");
+    if (play) {
+      const id = play.dataset.cellId;
       if (!id || !ws || ws.readyState !== 1) {
-        setStatus("not connected", "err");
+        setStatus("Not connected", "err");
         return;
       }
-      run.disabled = true;
-      setStatus("running", "run");
+      play.disabled = true;
+      play.classList.add("is-running");
+      setStatus("Running", "run");
       const source = flushSource(id);
-      const cell = run.closest(".cell-row");
+      const cell = play.closest(".cell-row");
+      if (cell) cell.classList.add("is-running");
       const out = cell && $(".out-block", cell);
       if (out) {
         out.hidden = false;
-        out.classList.remove("border-error", "bg-error/10", "text-error");
-        out.classList.add("border-info", "text-info");
+        out.classList.remove("is-error");
+        out.classList.add("is-running");
         out.textContent = "…";
       }
       sendJSON({ type: "exec.run", cell_id: id, source: source });
       return;
     }
 
-    const mdToggle = e.target.closest("button.md-toggle");
-    if (mdToggle) {
-      const cell = mdToggle.closest(".cell-row");
-      if (!cell || !api) return;
-      const id = cell.getAttribute("data-cell-id");
-      const preview = $(".md-preview", cell);
-      const host = $("[data-gaderno-editor]", cell);
-      if (!preview || !host) return;
-      const editing = mdToggle.dataset.mode === "edit";
-      if (editing) {
-        mdToggle.dataset.mode = "preview";
-        mdToggle.textContent = "Edit";
-        preview.textContent = api.getSource(id);
-        preview.hidden = false;
-        host.hidden = true;
-      } else {
-        mdToggle.dataset.mode = "edit";
-        mdToggle.textContent = "Preview";
-        preview.hidden = true;
-        host.hidden = false;
-        api.focus(id);
-      }
+    const mdPreview = e.target.closest(".md-preview");
+    if (mdPreview) {
+      enterMarkdownEdit(mdPreview.closest(".cell-row"));
       return;
     }
 
-    const typeTab = e.target.closest("button.cell-type-tab");
-    if (typeTab) {
-      const id = typeTab.dataset.cellId;
-      const typ = typeTab.dataset.type;
+    const typeSet = e.target.closest("button.cell-type-set");
+    if (typeSet) {
+      const id = typeSet.dataset.cellId;
+      const typ = typeSet.dataset.type;
       if (!id || !typ) return;
-      document.querySelectorAll("details.dropdown[open]").forEach(function (d) {
-        d.open = false;
-      });
-      if (typeTab.classList.contains("tab-active")) return;
+      closeMenus();
       sendJSON({ type: "cell.set_type", cell_id: id, text: typ });
       return;
     }
 
-    const addCode = e.target.closest("#btn-add-code");
-    if (addCode) {
-      const n = document.querySelectorAll("#cells .cell-row").length;
-      sendJSON({ type: "cell.insert", text: "code", index: n });
+    const insertBtn = e.target.closest(".cell-insert-btn");
+    if (insertBtn) {
+      const typ = insertBtn.getAttribute("data-type") || "code";
+      const gap = insertBtn.closest(".cell-insert");
+      if (!gap) return;
+      if (gap.hasAttribute("data-insert-end")) {
+        insertCell(typ, $all("#cells .cell-row").length);
+      } else {
+        const before = gap.getAttribute("data-insert-before");
+        const idx = indexOfCell(before);
+        insertCell(typ, idx >= 0 ? idx : 0);
+      }
       return;
     }
-    const addMd = e.target.closest("#btn-add-md");
-    if (addMd) {
-      const n = document.querySelectorAll("#cells .cell-row").length;
-      sendJSON({ type: "cell.insert", text: "markdown", index: n });
+
+    if (e.target.closest("#btn-first-code")) {
+      insertCell("code", 0);
       return;
     }
+    if (e.target.closest("#btn-first-md")) {
+      insertCell("markdown", 0);
+      return;
+    }
+
     const del = e.target.closest(".cell-del");
     if (del) {
       const id = del.dataset.cellId;
       if (!id) return;
       if (!confirm("Delete this cell?")) return;
-      document.querySelectorAll("details.dropdown[open]").forEach(function (d) {
-        d.open = false;
-      });
+      closeMenus();
       sendJSON({ type: "cell.delete", cell_id: id });
       return;
     }
     const up = e.target.closest(".cell-up");
     if (up) {
       const id = up.dataset.cellId;
-      const rows = $all("#cells .cell-row");
-      const idx = rows.findIndex(function (r) {
-        return r.getAttribute("data-cell-id") === id;
-      });
-      document.querySelectorAll("details.dropdown[open]").forEach(function (d) {
-        d.open = false;
-      });
+      const idx = indexOfCell(id);
+      closeMenus();
       if (idx > 0) sendJSON({ type: "cell.move", cell_id: id, index: idx - 1 });
       return;
     }
@@ -476,73 +620,60 @@ import { createCollabSession } from "./editor.js";
     if (down) {
       const id = down.dataset.cellId;
       const rows = $all("#cells .cell-row");
-      const idx = rows.findIndex(function (r) {
-        return r.getAttribute("data-cell-id") === id;
-      });
-      document.querySelectorAll("details.dropdown[open]").forEach(function (d) {
-        d.open = false;
-      });
+      const idx = indexOfCell(id);
+      closeMenus();
       if (idx >= 0 && idx < rows.length - 1)
         sendJSON({ type: "cell.move", cell_id: id, index: idx + 1 });
       return;
     }
-
-    const save = e.target.closest("#btn-save");
-    if (save) {
-      setStatus("saving", "run");
-      fetch("/api/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: path }),
-      })
-        .then(function (r) {
-          setStatus(r.ok ? "saved" : "save failed", r.ok ? "ok" : "err");
-          if (r.ok) setTimeout(function () { setStatus("live", "ok"); }, 800);
-        })
-        .catch(function () {
-          setStatus("save failed", "err");
-        });
-    }
   });
 
-  const chatForm = $("#chat-form");
-  if (chatForm) {
-    chatForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const input = $("#chat-input");
-      const text = ((input && input.value) || "").trim();
-      if (!text || !ws || ws.readyState !== 1) return;
-      sendJSON({ type: "chat.send", text: text });
-      input.value = "";
-    });
-  }
+  // Blur markdown editor → preview
+  document.addEventListener(
+    "focusout",
+    function (e) {
+      const host = e.target.closest && e.target.closest(".cm-host.is-md-edit, .cm-host[data-lang='markdown']");
+      if (!host) return;
+      const cell = host.closest(".cell-row");
+      if (!cell || cell.getAttribute("data-cell-type") !== "markdown") return;
+      // Defer so click-into-toolbar still works
+      setTimeout(function () {
+        if (cell.contains(document.activeElement)) return;
+        if (host.hidden) return;
+        exitMarkdownEdit(cell);
+      }, 120);
+    },
+    true
+  );
 
-  // —— Collapsible chat sidebar ——
-  const chatRail = document.getElementById("chat-rail");
+  // —— Chat panel ——
+  const chatPanel = document.getElementById("chat-panel");
   const btnChat = document.getElementById("btn-chat");
   const btnChatClose = document.getElementById("btn-chat-close");
   const CHAT_KEY = "gaderno-chat-open";
 
   function setChatOpen(open) {
-    if (!chatRail) return;
-    chatRail.dataset.open = open ? "true" : "false";
-    chatRail.setAttribute("aria-hidden", open ? "false" : "true");
+    if (!chatPanel) return;
+    chatPanel.dataset.open = open ? "true" : "false";
+    chatPanel.setAttribute("aria-hidden", open ? "false" : "true");
     if (btnChat) {
       btnChat.setAttribute("aria-expanded", open ? "true" : "false");
-      btnChat.classList.toggle("btn-active", open);
+      btnChat.classList.toggle("g-active", open);
     }
     try {
       localStorage.setItem(CHAT_KEY, open ? "1" : "0");
     } catch (_) {}
     if (open) {
       const input = document.getElementById("chat-input");
-      if (input) setTimeout(function () { input.focus(); }, 180);
+      if (input) setTimeout(function () {
+        input.focus();
+      }, 200);
     }
   }
 
   function toggleChat() {
-    if (!chatRail) return;
-    setChatOpen(chatRail.dataset.open !== "true");
+    if (!chatPanel) return;
+    setChatOpen(chatPanel.dataset.open !== "true");
   }
 
   if (btnChat) btnChat.addEventListener("click", toggleChat);
@@ -556,12 +687,22 @@ import { createCollabSession } from "./editor.js";
     setChatOpen(false);
   }
 
+  const chatForm = $("#chat-form");
+  if (chatForm) {
+    chatForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const input = $("#chat-input");
+      const text = ((input && input.value) || "").trim();
+      if (!text || !ws || ws.readyState !== 1) return;
+      sendJSON({ type: "chat.send", text: text });
+      input.value = "";
+    });
+  }
+
   // —— Kernel chooser ——
   const kernelDialog = document.getElementById("kernel-dialog");
   const kernelList = document.getElementById("kernel-list");
   const kernelFilter = document.getElementById("kernel-filter");
-  const kernelLabel = document.getElementById("kernel-label");
-  const kernelStateDot = document.getElementById("kernel-state-dot");
   const kernelDialogHint = document.getElementById("kernel-dialog-hint");
   let kernelStatus = {
     needs_kernel: true,
@@ -571,44 +712,19 @@ import { createCollabSession } from "./editor.js";
     running: false,
   };
   let autoOpenedChooser = false;
-  let kernelCatalog = null; // { groups, kernels }
+  let kernelCatalog = null;
 
   function applyKernelStatus(st) {
     if (!st) return;
     kernelStatus = st;
     const needs = st.needs_kernel || !st.bound_name;
-    if (kernelLabel) {
-      if (needs) {
-        kernelLabel.textContent = "Select kernel…";
-      } else {
-        kernelLabel.textContent = st.display_name || st.bound_name;
-      }
-    }
-    if (kernelStateDot) {
-      kernelStateDot.className = "badge badge-xs shrink-0";
-      if (needs) {
-        kernelStateDot.classList.add("badge-warning");
-        kernelStateDot.textContent = "pick";
-      } else if (st.running || st.phase === "ready" || st.phase === "busy") {
-        kernelStateDot.classList.add("badge-success");
-        kernelStateDot.textContent = st.phase === "busy" ? "run" : "on";
-      } else if (st.phase === "starting") {
-        kernelStateDot.classList.add("badge-info");
-        kernelStateDot.textContent = "…";
-      } else if (st.phase === "dead") {
-        kernelStateDot.classList.add("badge-error");
-        kernelStateDot.textContent = "err";
-      } else {
-        kernelStateDot.classList.add("badge-ghost");
-        kernelStateDot.textContent = "idle";
-      }
-    }
-    if (btnKernel) {
-      btnKernel.title = needs
-        ? "Choose a kernel before running cells"
-        : (st.bound_name || "") + " · " + (st.phase || "");
-      btnKernel.classList.toggle("btn-warning", !!needs);
-      btnKernel.classList.toggle("btn-ghost", !needs);
+    // Don't override live/offline connection label unless connected
+    if (sessionReady) {
+      if (needs) setStatus("Pick kernel", "warn");
+      else if (st.phase === "busy" || st.running) setStatus("Busy", "run");
+      else if (st.phase === "starting") setStatus("Starting", "run");
+      else if (st.phase === "dead") setStatus("Kernel error", "err");
+      else setStatus("Live", "ok");
     }
     if (needs && kernelDialog && !kernelDialog.open && !autoOpenedChooser) {
       autoOpenedChooser = true;
@@ -616,7 +732,7 @@ import { createCollabSession } from "./editor.js";
     }
   }
 
-    function renderKernelList(filter) {
+  function renderKernelList(filter) {
     if (!kernelList) return;
     const q = (filter || "").trim().toLowerCase();
     const groups = (kernelCatalog && kernelCatalog.groups) || {};
@@ -624,7 +740,7 @@ import { createCollabSession } from "./editor.js";
     const titles = { jupyter: "Jupyter", uv: "uv" };
     const blurb = {
       jupyter: "Installed kernelspecs on this machine",
-      uv: "Managed by uv (starts with ipykernel on first Run)",
+      uv: "Managed by uv (starts with ipykernel on first play)",
     };
 
     let html = "";
@@ -660,7 +776,7 @@ import { createCollabSession } from "./editor.js";
         const name = escapeHtml(k.name);
         const disp = escapeHtml(k.display_name || k.name);
         const lang = escapeHtml(k.language || "");
-        html += "<li class=\"w-full\">";
+        html += '<li class="w-full">';
         html +=
           '<button type="button" class="kernel-pick w-full rounded-none' +
           (active ? " menu-active" : "") +
@@ -716,7 +832,10 @@ import { createCollabSession } from "./editor.js";
       '<div class="flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs">' +
       '<span class="loading loading-spinner loading-xs"></span>Loading kernels…</div>';
     kernelDialog.showModal();
-    if (kernelFilter) setTimeout(function () { kernelFilter.focus(); }, 50);
+    if (kernelFilter)
+      setTimeout(function () {
+        kernelFilter.focus();
+      }, 50);
     try {
       const r = await fetch("/api/kernels");
       if (!r.ok) throw new Error("load failed");
@@ -728,11 +847,41 @@ import { createCollabSession } from "./editor.js";
     }
   }
 
-  if (btnKernel) {
-    btnKernel.addEventListener("click", function () {
+  if (btnSession) {
+    btnSession.addEventListener("click", function () {
       openKernelChooser();
     });
   }
+  const menuKernel = $("#menu-kernel");
+  if (menuKernel) {
+    menuKernel.addEventListener("click", function () {
+      closeMenus();
+      openKernelChooser();
+    });
+  }
+  const menuForceSave = $("#menu-force-save");
+  if (menuForceSave) {
+    menuForceSave.addEventListener("click", function () {
+      closeMenus();
+      setStatus("Saving…", "run");
+      fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path }),
+      })
+        .then(function (r) {
+          setStatus(r.ok ? "Saved" : "Save failed", r.ok ? "ok" : "err");
+          if (r.ok)
+            setTimeout(function () {
+              if (sessionReady) setStatus("Live", "ok");
+            }, 900);
+        })
+        .catch(function () {
+          setStatus("Save failed", "err");
+        });
+    });
+  }
+
   if (kernelFilter) {
     kernelFilter.addEventListener("input", function () {
       renderKernelList(kernelFilter.value);
@@ -763,9 +912,9 @@ import { createCollabSession } from "./editor.js";
         .then(function (st) {
           applyKernelStatus(st);
           if (kernelDialog) kernelDialog.close();
-          setStatus("kernel ready", "ok");
+          setStatus("Kernel ready", "ok");
           setTimeout(function () {
-            setStatus("live", "ok");
+            if (sessionReady) setStatus("Live", "ok");
           }, 600);
         })
         .catch(function (err) {

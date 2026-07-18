@@ -106,7 +106,7 @@ export function createCollabSession() {
   function createEditor(host, cellId, lang) {
     const ytext = ydoc.getText(sourceKey(cellId));
     const langExt = lang === "markdown" ? markdown() : python();
-    const minH = lang === "markdown" ? 96 : 160;
+    const minH = lang === "markdown" ? 88 : 72;
     // y-codemirror only observes *future* Y changes — seed CM from Y.Text
     // or remounts look empty even though the CRDT still has content.
     const seed = ytext.toString();
@@ -208,10 +208,17 @@ export function createCollabSession() {
     ydoc.destroy();
   }
 
+  function setUserName(name) {
+    const n = String(name || "").trim();
+    if (n) user.name = n;
+    awareness.setLocalStateField("user", user);
+  }
+
   return {
     ydoc,
     awareness,
     user,
+    setUserName,
     attachTransport,
     handleSyncMessage,
     handleAwarenessB64,
