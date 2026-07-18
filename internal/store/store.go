@@ -21,6 +21,30 @@ func New(root string) *Store {
 	return &Store{root: root}
 }
 
+// CleanRel returns a canonical jail-relative path (no leading slash, no "." / "..").
+// Callers that key caches or hubs by path must use this so equivalent spellings
+// ("./a.ipynb", "a.ipynb", "sub/../a.ipynb") share one entry.
+func CleanRel(rel string) (string, error) {
+	rel = strings.TrimSpace(rel)
+	if rel == "" {
+		return "", fmt.Errorf("empty path")
+	}
+	// Force absolute-style Clean so ".." segments collapse even when rel is relative.
+	rel = filepath.Clean("/" + rel)
+	rel = strings.TrimPrefix(rel, "/")
+	if rel == "" || rel == "." {
+		return "", fmt.Errorf("empty path")
+	}
+	// After leading-slash Clean, ".." path segments are gone. Reject any leftover
+	// segment (should not happen) without false-positive on names like "foo..bar".
+	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+		if part == ".." {
+			return "", fmt.Errorf("path escapes root")
+		}
+	}
+	return rel, nil
+}
+
 // Load reads and parses a notebook at relative path.
 func (s *Store) Load(_ context.Context, rel string) (*document.Notebook, error) {
 	abs, err := s.resolve(rel)
@@ -73,6 +97,10 @@ func (s *Store) Save(_ context.Context, rel string, nb *document.Notebook) error
 
 // CreateNew saves only if the path does not exist.
 func (s *Store) CreateNew(ctx context.Context, rel string, nb *document.Notebook) error {
+	rel, err := CleanRel(rel)
+	if err != nil {
+		return err
+	}
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return err
@@ -86,19 +114,20 @@ func (s *Store) CreateNew(ctx context.Context, rel string, nb *document.Notebook
 }
 
 func (s *Store) resolve(rel string) (string, error) {
-	rel = filepath.Clean("/" + rel)
-	rel = strings.TrimPrefix(rel, "/")
-	if rel == "" || rel == "." {
-		return "", fmt.Errorf("empty path")
+	rel, err := CleanRel(rel)
+	if err != nil {
+		return "", err
 	}
-	if strings.Contains(rel, "..") {
-		return "", fmt.Errorf("path escapes root")
-	}
-	abs := filepath.Join(s.root, rel)
-	// Ensure still under root
 	root := filepath.Clean(s.root)
-	if abs != root && !strings.HasPrefix(abs, root+string(os.PathSeparator)) {
+	abs := filepath.Join(root, rel)
+	// filepath.Rel rejects paths outside root more reliably than HasPrefix
+	// (avoids "/tmp/foo" vs "/tmp/foobar" prefix tricks when root is absolute).
+	relToRoot, err := filepath.Rel(root, abs)
+	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("path escapes root")
+	}
+	if relToRoot == "." {
+		return "", fmt.Errorf("empty path")
 	}
 	return abs, nil
 }

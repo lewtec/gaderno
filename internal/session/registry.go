@@ -26,7 +26,13 @@ func NewRegistry(st *store.Store, root, _ string) *Registry {
 }
 
 // GetOrOpen returns an existing hub or opens one.
+// Paths are canonicalized so "./n.ipynb" and "n.ipynb" share one hub
+// (avoids split-brain CRDT / last-writer-wins on the same file).
 func (r *Registry) GetOrOpen(ctx context.Context, rel string) (*Hub, error) {
+	rel, err := store.CleanRel(rel)
+	if err != nil {
+		return nil, err
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if h, ok := r.hubs[rel]; ok {
