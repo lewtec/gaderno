@@ -3,6 +3,7 @@ package crdt
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/lucasew/gaderno/internal/document"
 	ycrdt "github.com/reearth/ygo/crdt"
@@ -123,6 +124,8 @@ func (n *NotebookDoc) CellIDs() []string {
 
 // ProjectNotebook builds an ipynb snapshot from CRDT state.
 // Never invents a new notebook with fresh random cells when empty.
+// Restores nested metadata (kernelspec, …), execution_count, and outputs so a
+// debounced save after load/edit does not wipe ipynb fields LoadFromNotebook stored.
 func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 	nb := &document.Notebook{
 		NBFormat:      4,
@@ -131,11 +134,14 @@ func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 		Cells:         []document.Cell{},
 	}
 	meta := n.Doc.GetMap(RootMeta)
+	rawMeta := map[string]any{}
 	for _, k := range meta.Keys() {
 		if v, ok := meta.Get(k); ok {
-			nb.Metadata[k] = v
+			rawMeta[k] = v
 		}
 	}
+	nb.Metadata = unflattenMeta(rawMeta)
+
 	cellData := n.Doc.GetMap(RootCellData)
 	for _, id := range n.CellIDs() {
 		c := document.Cell{
@@ -147,6 +153,24 @@ func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 		if t, ok := cellData.Get(id + ".type"); ok {
 			if s, ok := t.(string); ok && s != "" {
 				c.CellType = document.CellType(s)
+			}
+		}
+		if c.CellType == document.CellCode {
+			if v, ok := cellData.Get(id + ".execution_count"); ok {
+				if n, ok := asExecCount(v); ok {
+					c.ExecutionCount = &n
+				}
+			}
+			if v, ok := cellData.Get(id + ".outputs_json"); ok {
+				if s, ok := v.(string); ok && s != "" && s != "null" {
+					var outs []document.Output
+					if err := json.Unmarshal([]byte(s), &outs); err == nil {
+						c.Outputs = outs
+					}
+				}
+			}
+			if c.Outputs == nil {
+				c.Outputs = []document.Output{}
 			}
 		}
 		nb.Cells = append(nb.Cells, c)
@@ -325,4 +349,60 @@ func flattenMeta(m map[string]any) map[string]any {
 		}
 	}
 	return out
+}
+
+// unflattenMeta reverses flattenMeta: keys ending in _json become nested values
+// under the base key so Save writes real nbformat metadata (e.g. kernelspec).
+func unflattenMeta(m map[string]any) map[string]any {
+	out := map[string]any{}
+	if m == nil {
+		return out
+	}
+	for k, v := range m {
+		if strings.HasSuffix(k, "_json") {
+			continue
+		}
+		out[k] = v
+	}
+	for k, v := range m {
+		if !strings.HasSuffix(k, "_json") {
+			continue
+		}
+		base := strings.TrimSuffix(k, "_json")
+		s, ok := v.(string)
+		if !ok || s == "" {
+			continue
+		}
+		var nested any
+		if err := json.Unmarshal([]byte(s), &nested); err != nil {
+			// Keep the raw blob so data is not silently dropped.
+			out[k] = s
+			continue
+		}
+		out[base] = nested
+	}
+	return out
+}
+
+func asExecCount(v any) (int, bool) {
+	switch n := v.(type) {
+	case float64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	case int:
+		return n, true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(i), true
+	default:
+		return 0, false
+	}
 }
