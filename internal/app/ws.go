@@ -362,6 +362,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				"status":       res.Status,
 				"found":        res.Found,
 				"text":         res.Text,
+				"html":         res.HTML,
 				"detail_level": res.DetailLevel,
 			})
 			select {

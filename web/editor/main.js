@@ -75,15 +75,26 @@ function signatureLine(text) {
   return lines[0] || "";
 }
 
-function makeInspectDOM(text, kind) {
+function makeInspectDOM(payload, kind) {
+  const text =
+    typeof payload === "string" ? payload : (payload && payload.text) || "";
+  const html = typeof payload === "object" && payload ? payload.html : "";
   const dom = document.createElement("div");
   dom.className =
     "cm-tooltip-hover cm-kernel-inspect" +
     (kind === "signature" ? " cm-kernel-signature" : "");
-  const pre = document.createElement("pre");
-  pre.className = "cm-kernel-inspect-body";
-  pre.textContent = text;
-  dom.appendChild(pre);
+  if (html && typeof html === "string" && html.indexOf("<pre") !== -1) {
+    // Server-built ANSI→HTML only (escaped text + classed spans).
+    const wrap = document.createElement("div");
+    wrap.className = "cm-kernel-inspect-body cm-kernel-inspect-html";
+    wrap.innerHTML = html;
+    dom.appendChild(wrap);
+  } else {
+    const pre = document.createElement("pre");
+    pre.className = "cm-kernel-inspect-body";
+    pre.textContent = text;
+    dom.appendChild(pre);
+  }
   return dom;
 }
 
@@ -230,9 +241,9 @@ export function createCollabSession() {
         { code: code, cursor_pos: pos, detail_level: 1 },
         4000
       );
-      if (!msg || !msg.found || !msg.text) return null;
-      const text = String(msg.text).trim();
-      if (!text) return null;
+      if (!msg || !msg.found || (!msg.text && !msg.html)) return null;
+      const text = String(msg.text || "").trim();
+      if (!text && !msg.html) return null;
       // Highlight a small span around the hover word when possible.
       let from = pos;
       let to = pos;
@@ -246,7 +257,12 @@ export function createCollabSession() {
         end: to,
         above: true,
         create() {
-          return { dom: makeInspectDOM(text, "hover") };
+          return {
+            dom: makeInspectDOM(
+              { text: text, html: msg.html || "" },
+              "hover"
+            ),
+          };
         },
       };
     },
@@ -295,12 +311,13 @@ export function createCollabSession() {
         view.dispatch({ effects: setSignature.of(null) });
         return;
       }
-      if (!msg || !msg.found || !msg.text) {
+      if (!msg || !msg.found || (!msg.text && !msg.html)) {
         view.dispatch({ effects: setSignature.of(null) });
         return;
       }
-      const line = signatureLine(msg.text);
-      if (!line) {
+      // detail_level 0 is already abbreviated; prefer colored HTML when present.
+      const line = signatureLine(msg.text || "");
+      if (!line && !msg.html) {
         view.dispatch({ effects: setSignature.of(null) });
         return;
       }
@@ -309,7 +326,15 @@ export function createCollabSession() {
         above: true,
         strictSide: true,
         create() {
-          return { dom: makeInspectDOM(line, "signature") };
+          return {
+            dom: makeInspectDOM(
+              {
+                text: line || msg.text || "",
+                html: msg.html || "",
+              },
+              "signature"
+            ),
+          };
         },
       };
       // Ignore if a newer request was issued (reqSeq advanced a lot via other RPCs —

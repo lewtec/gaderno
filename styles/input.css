@@ -613,7 +613,7 @@
     overflow: auto;
     padding: 0.5rem 0.65rem;
     font-size: 0.75rem;
-    line-height: 1.4;
+    line-height: 1.45;
   }
   .cm-kernel-inspect-body {
     margin: 0;
@@ -622,13 +622,73 @@
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
     color: var(--color-base-content);
   }
+  .cm-kernel-inspect-html pre.ansi {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    font-size: inherit;
+  }
   .cm-kernel-signature {
-    max-height: 6rem;
+    max-height: 8rem;
     border-left: 2px solid var(--color-primary);
     padding-left: 0.55rem;
   }
-  .cm-kernel-signature .cm-kernel-inspect-body {
-    font-weight: 500;
+
+  /* ANSI SGR → theme-aware classes (server ANSIToHTML) */
+  .ansi-bold {
+    font-weight: 700;
+  }
+  .ansi-underline {
+    text-decoration: underline;
+  }
+  .ansi-fg-black {
+    color: color-mix(in oklch, var(--color-base-content) 55%, transparent);
+  }
+  .ansi-fg-red {
+    color: var(--color-error);
+  }
+  .ansi-fg-green {
+    color: var(--color-success);
+  }
+  .ansi-fg-yellow {
+    color: var(--color-warning);
+  }
+  .ansi-fg-blue {
+    color: var(--color-info);
+  }
+  .ansi-fg-magenta {
+    color: color-mix(in oklch, var(--color-primary) 70%, #c026d3);
+  }
+  .ansi-fg-cyan {
+    color: var(--color-accent);
+  }
+  .ansi-fg-white {
+    color: var(--color-base-content);
+  }
+  .ansi-fg-bright-black {
+    color: color-mix(in oklch, var(--color-base-content) 45%, transparent);
+  }
+  .ansi-fg-bright-red {
+    color: color-mix(in oklch, var(--color-error) 85%, white);
+  }
+  .ansi-fg-bright-green {
+    color: color-mix(in oklch, var(--color-success) 85%, white);
+  }
+  .ansi-fg-bright-yellow {
+    color: color-mix(in oklch, var(--color-warning) 90%, white);
+  }
+  .ansi-fg-bright-blue {
+    color: color-mix(in oklch, var(--color-info) 85%, white);
+  }
+  .ansi-fg-bright-magenta {
+    color: color-mix(in oklch, var(--color-primary) 50%, #e879f9);
+  }
+  .ansi-fg-bright-cyan {
+    color: color-mix(in oklch, var(--color-accent) 85%, white);
+  }
+  .ansi-fg-bright-white {
+    color: var(--color-base-content);
   }
 
   .out-block {

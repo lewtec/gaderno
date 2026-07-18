@@ -10,8 +10,10 @@ import (
 type InspectResult struct {
 	Status string `json:"status"`
 	Found  bool   `json:"found"`
-	// Text is text/plain (preferred) from the mime bundle.
+	// Text is plain text (ANSI stripped) from text/plain.
 	Text string `json:"text"`
+	// HTML is safe colored markup (ANSI → classed spans, content escaped).
+	HTML string `json:"html"`
 	// DetailLevel echoes the request (0 ≈ signature, 1 ≈ full docs).
 	DetailLevel int `json:"detail_level"`
 }
@@ -110,17 +112,21 @@ func parseInspectReply(content map[string]any, detailLevel int) InspectResult {
 	case float64:
 		res.Found = f != 0
 	}
+	var rawPlain string
 	if data, ok := content["data"].(map[string]any); ok {
-		// Prefer plain text; fall back to stripping HTML later if needed.
+		// Prefer text/plain (often ANSI-colored by ipykernel).
 		if tp, ok := data["text/plain"]; ok {
-			res.Text = multilineContent(tp)
+			rawPlain = multilineContent(tp)
 		} else if th, ok := data["text/html"]; ok {
-			res.Text = multilineContent(th)
+			// No safe HTML sanitizer for arbitrary kernel HTML — plain-strip only.
+			rawPlain = multilineContent(th)
 		}
 	}
-	// ipykernel often wraps Signature/Docstring labels in ANSI colors.
-	if res.Text != "" {
-		res.Text = FilterTerminal(res.Text)
+	if rawPlain != "" {
+		// Colored tooltip markup (escaped text + classed spans).
+		res.HTML = ANSIToHTML(rawPlain)
+		// Plain fallback for clients / signature-line extraction.
+		res.Text = FilterTerminal(rawPlain)
 	}
 	if res.Text != "" {
 		// Some kernels omit found=true but still send a body.
