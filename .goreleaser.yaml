@@ -61,17 +61,4 @@ release:
 
     ---
 
-    **Install**
-
-    Download the archive for your OS/arch, extract `gaderno`, put it on `PATH`.
-
-    ```text
-    gaderno version
-    gaderno serve --root ./notebooks --listen :8765
-    ```
-
-    Kernels are **not** bundled: use a Jupyter kernelspec and/or `uv` on `PATH`.
-
-    ---
-
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
