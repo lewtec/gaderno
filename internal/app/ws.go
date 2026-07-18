@@ -22,13 +22,16 @@ var upgrader = websocket.Upgrader{
 }
 
 type wsControl struct {
-	Type   string `json:"type"`
-	CellID string `json:"cell_id,omitempty"`
-	Text   string `json:"text,omitempty"`
-	Source string `json:"source,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Update string `json:"update,omitempty"` // base64 awareness payload
-	Index  *int   `json:"index,omitempty"`
+	Type      string `json:"type"`
+	CellID    string `json:"cell_id,omitempty"`
+	Text      string `json:"text,omitempty"`
+	Source    string `json:"source,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Update    string `json:"update,omitempty"` // base64 awareness payload
+	Index     *int   `json:"index,omitempty"`
+	Code      string `json:"code,omitempty"`
+	CursorPos *int   `json:"cursor_pos,omitempty"`
+	ReqID     string `json:"req_id,omitempty"`
 }
 
 func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) {
@@ -269,6 +272,52 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				"execution_count": res.ExecutionCount,
 			})
 			hub.BroadcastJSON(b, "")
+		}()
+	case "complete.request":
+		// Async; reply only to requesting client (not broadcast).
+		go func() {
+			code := ctrl.Code
+			if code == "" {
+				code = ctrl.Source
+			}
+			pos := 0
+			if ctrl.CursorPos != nil {
+				pos = *ctrl.CursorPos
+			} else if len(code) > 0 {
+				pos = len(code)
+			}
+			reqID := ctrl.ReqID
+			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			defer cancel()
+			res, err := hub.Complete(ctx, code, pos)
+			if err != nil {
+				b, _ := json.Marshal(map[string]any{
+					"type":         "complete.reply",
+					"req_id":       reqID,
+					"status":       "error",
+					"matches":      []string{},
+					"cursor_start": pos,
+					"cursor_end":   pos,
+					"text":         err.Error(),
+				})
+				select {
+				case client.Out <- session.Outbound{Data: b}:
+				default:
+				}
+				return
+			}
+			b, _ := json.Marshal(map[string]any{
+				"type":         "complete.reply",
+				"req_id":       reqID,
+				"status":       res.Status,
+				"matches":      res.Matches,
+				"cursor_start": res.CursorStart,
+				"cursor_end":   res.CursorEnd,
+			})
+			select {
+			case client.Out <- session.Outbound{Data: b}:
+			default:
+			}
 		}()
 	}
 }

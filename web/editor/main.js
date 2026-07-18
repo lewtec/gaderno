@@ -2,6 +2,7 @@ import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { python } from "@codemirror/lang-python";
 import { markdown } from "@codemirror/lang-markdown";
+import { autocompletion } from "@codemirror/autocomplete";
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
 import * as awarenessProtocol from "y-protocols/awareness";
@@ -46,6 +47,9 @@ export function createCollabSession() {
   let sendBinary = null;
   let sendJSON = null;
   let connected = false;
+  /** @type {Map<string, { resolve: (v: any) => void, timer: any }>} */
+  const pendingComplete = new Map();
+  let reqSeq = 0;
 
   const onDocUpdate = (update, origin) => {
     if (origin === "remote" || !sendBinary) return;
@@ -98,6 +102,76 @@ export function createCollabSession() {
     } catch (_) {}
   }
 
+  function handleCompleteReply(msg) {
+    if (!msg || !msg.req_id) return;
+    const pending = pendingComplete.get(msg.req_id);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    pendingComplete.delete(msg.req_id);
+    pending.resolve(msg);
+  }
+
+  /**
+   * CodeMirror completion source → Jupyter complete_request over WS.
+   * Only activates when connected; empty if kernel not running / busy.
+   */
+  function kernelCompletions(context) {
+    if (!sendJSON || !connected) return null;
+    // Avoid hammering on every keystroke in comments-only empty context.
+    if (!context.explicit && !context.matchBefore(/[\w.]/)) return null;
+
+    const code = context.state.doc.toString();
+    const pos = context.pos;
+    const reqId = "c" + ++reqSeq + "-" + Date.now().toString(36);
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingComplete.delete(reqId);
+        resolve(null);
+      }, 4000);
+      pendingComplete.set(reqId, {
+        timer,
+        resolve: (msg) => {
+          const matches = Array.isArray(msg.matches) ? msg.matches : [];
+          if (!matches.length || msg.status === "error" || msg.status === "no_kernel") {
+            resolve(null);
+            return;
+          }
+          let from =
+            typeof msg.cursor_start === "number" ? msg.cursor_start : pos;
+          let to = typeof msg.cursor_end === "number" ? msg.cursor_end : pos;
+          // Clamp to document bounds (kernel uses same UTF-8/codepoints as str for Python).
+          const len = code.length;
+          if (from < 0) from = 0;
+          if (to < from) to = from;
+          if (from > len) from = len;
+          if (to > len) to = len;
+          resolve({
+            from,
+            to,
+            options: matches.map((m) => ({
+              label: String(m),
+              type: "variable",
+            })),
+            validFor: /^[\w.]*$/,
+          });
+        },
+      });
+      try {
+        sendJSON({
+          type: "complete.request",
+          code: code,
+          cursor_pos: pos,
+          req_id: reqId,
+        });
+      } catch (_) {
+        clearTimeout(timer);
+        pendingComplete.delete(reqId);
+        resolve(null);
+      }
+    });
+  }
+
   function destroyEditors() {
     editors.forEach((v) => v.destroy());
     editors.clear();
@@ -113,68 +187,81 @@ export function createCollabSession() {
 
   function createEditor(host, cellId, lang) {
     const ytext = ydoc.getText(sourceKey(cellId));
-    const langExt = lang === "markdown" ? markdown() : python();
-    const minH = lang === "markdown" ? 88 : 72;
+    const isPython = lang !== "markdown";
+    const langExt = isPython ? python() : markdown();
+    const minH = isPython ? 72 : 88;
     // y-codemirror only observes *future* Y changes — seed CM from Y.Text
     // or remounts look empty even though the CRDT still has content.
     const seed = ytext.toString();
     host.replaceChildren();
+
+    const extensions = [
+      basicSetup,
+      langExt,
+      EditorView.lineWrapping,
+      yCollab(ytext, awareness, { undoManager: false }),
+      EditorView.theme({
+        "&": {
+          fontSize: "0.8125rem",
+          height: "100%",
+          minHeight: minH + "px",
+          backgroundColor: "transparent",
+          color: "var(--color-base-content)",
+        },
+        ".cm-scroller": {
+          fontFamily:
+            'ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace',
+          lineHeight: "1.45",
+          minHeight: "100%",
+          backgroundColor: "transparent",
+        },
+        ".cm-content": {
+          minHeight: minH - 12 + "px",
+          padding: "10px 0",
+          caretColor: "var(--color-primary)",
+        },
+        ".cm-gutters": {
+          backgroundColor: "transparent",
+          color: "color-mix(in oklch, var(--color-base-content) 45%, transparent)",
+          borderRight: "none",
+        },
+        ".cm-activeLineGutter": {
+          backgroundColor:
+            "color-mix(in oklch, var(--color-primary) 10%, transparent)",
+        },
+        ".cm-activeLine": {
+          backgroundColor:
+            "color-mix(in oklch, var(--color-primary) 7%, transparent)",
+        },
+        "&.cm-focused": {
+          outline: "none",
+        },
+      }),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged || update.geometryChanged || update.viewportChanged) {
+          syncGutterWidth(host, update.view);
+        }
+      }),
+    ];
+
+    // Kernel completions for code cells only (ipykernel complete_request).
+    if (isPython) {
+      extensions.push(
+        autocompletion({
+          override: [kernelCompletions],
+          activateOnTyping: true,
+          maxRenderedOptions: 50,
+        })
+      );
+    }
+
     const view = new EditorView({
       parent: host,
       state: EditorState.create({
         doc: seed,
-        extensions: [
-          basicSetup,
-          langExt,
-          EditorView.lineWrapping,
-          yCollab(ytext, awareness, { undoManager: false }),
-          EditorView.theme({
-            "&": {
-              fontSize: "0.8125rem",
-              height: "100%",
-              minHeight: minH + "px",
-              backgroundColor: "transparent",
-              color: "var(--color-base-content)",
-            },
-            ".cm-scroller": {
-              fontFamily:
-                'ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace',
-              lineHeight: "1.45",
-              minHeight: "100%",
-              backgroundColor: "transparent",
-            },
-            ".cm-content": {
-              minHeight: minH - 12 + "px",
-              padding: "10px 0",
-              caretColor: "var(--color-primary)",
-            },
-            ".cm-gutters": {
-              backgroundColor: "transparent",
-              color: "color-mix(in oklch, var(--color-base-content) 45%, transparent)",
-              borderRight: "none",
-            },
-            ".cm-activeLineGutter": {
-              backgroundColor:
-                "color-mix(in oklch, var(--color-primary) 10%, transparent)",
-            },
-            ".cm-activeLine": {
-              backgroundColor:
-                "color-mix(in oklch, var(--color-primary) 7%, transparent)",
-            },
-            "&.cm-focused": {
-              outline: "none",
-            },
-          }),
-          // Keep host gutter strip width in sync when line numbers grow (9→10…).
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged || update.geometryChanged || update.viewportChanged) {
-              syncGutterWidth(host, update.view);
-            }
-          }),
-        ],
+        extensions,
       }),
     });
-    // After first layout paint
     requestAnimationFrame(() => syncGutterWidth(host, view));
     return view;
   }
@@ -188,7 +275,6 @@ export function createCollabSession() {
     scope.querySelectorAll("[data-gaderno-editor]").forEach((host) => {
       const cellId = host.getAttribute("data-cell-id");
       if (!cellId || seen.has(cellId)) {
-        // Skip empty/duplicate ids — they share one Y.Text and cause dual-edit bugs.
         host.replaceChildren();
         host.insertAdjacentHTML(
           "beforeend",
@@ -201,8 +287,6 @@ export function createCollabSession() {
 
       const existing = editors.get(cellId);
       if (existing && host.contains(existing.dom)) {
-        // Same cell host still holds this view (in-place reorder).
-        // Re-measure after layout may have shifted.
         try {
           existing.requestMeasure();
         } catch (_) {}
@@ -239,6 +323,11 @@ export function createCollabSession() {
   }
 
   function destroy() {
+    pendingComplete.forEach((p) => {
+      clearTimeout(p.timer);
+      p.resolve(null);
+    });
+    pendingComplete.clear();
     destroyEditors();
     awareness.off("update", onAwareness);
     ydoc.off("update", onDocUpdate);
@@ -260,6 +349,7 @@ export function createCollabSession() {
     attachTransport,
     handleSyncMessage,
     handleAwarenessB64,
+    handleCompleteReply,
     mountEditors,
     destroy,
     get connected() {
@@ -267,3 +357,4 @@ export function createCollabSession() {
     },
   };
 }
+

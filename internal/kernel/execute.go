@@ -40,6 +40,10 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 	if m.Conn == nil {
 		return ExecuteResult{}, fmt.Errorf("no connection")
 	}
+	// Hold for the whole execute so complete_request cannot interleave on shell.
+	m.shellMu.Lock()
+	defer m.shellMu.Unlock()
+
 	req := Message{
 		Header: NewHeader(m.Session, "execute_request"),
 		Content: map[string]any{

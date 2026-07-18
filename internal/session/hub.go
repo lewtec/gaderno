@@ -379,6 +379,18 @@ func (h *Hub) SetCellSource(cellID, source string, skipClient string) error {
 	return nil
 }
 
+// Complete asks the live kernel for code completions. Kernel must already be
+// running (does not auto-spawn — keeps autocomplete snappy and predictable).
+func (h *Hub) Complete(ctx context.Context, code string, cursorPos int) (kernel.CompleteResult, error) {
+	h.mu.Lock()
+	k := h.kernel
+	h.mu.Unlock()
+	if k == nil {
+		return kernel.CompleteResult{Status: "no_kernel", Matches: []string{}, CursorStart: cursorPos, CursorEnd: cursorPos}, nil
+	}
+	return k.Complete(ctx, code, cursorPos)
+}
+
 // ExecuteCell runs a cell by id (kernel must already be started).
 // onStream may be nil; when set, called for each stdout/stderr chunk.
 func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kernel.StreamChunk)) (kernel.ExecuteResult, error) {
