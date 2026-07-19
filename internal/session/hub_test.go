@@ -165,6 +165,44 @@ func TestExecuteCellRecordsOutputsInCRDT(t *testing.T) {
 	}
 }
 
+func TestCloseFlushesPendingSave(t *testing.T) {
+	// scheduleSave debounces 500ms; Close must flush without waiting so
+	// SIGINT / CloseAll does not drop the latest CRDT projection.
+	dir := t.TempDir()
+	st := store.New(dir)
+	nb := document.NewEmpty()
+	nb.Cells[0].Source = document.NewMultiline("old")
+	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := h.Doc.CellIDs()
+	if len(ids) != 1 {
+		t.Fatal(ids)
+	}
+	if err := h.Doc.SetSourceServer(ids[0], "new"); err != nil {
+		t.Fatal(err)
+	}
+	// Immediate close — do not sleep for the debounce window.
+	if err := h.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Load(context.Background(), "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Cells[0].SourceString() != "new" {
+		t.Fatalf("want flushed source %q, got %q", "new", got.Cells[0].SourceString())
+	}
+	// Close is idempotent.
+	if err := h.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestClientNotReadyBlocksSync(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)

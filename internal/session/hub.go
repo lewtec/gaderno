@@ -60,6 +60,7 @@ type Hub struct {
 	phase     KernelPhase
 	clients   map[string]*Client
 	saveTimer *time.Timer
+	closed    bool // set by Close; blocks further debounced saves
 	unsub     func()
 	spawning  bool
 }
@@ -120,6 +121,9 @@ func readKernelspecName(nb *document.Notebook) string {
 func (h *Hub) scheduleSave() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.closed {
+		return
+	}
 	if h.saveTimer != nil {
 		h.saveTimer.Stop()
 	}
@@ -620,27 +624,49 @@ func (h *Hub) SendKernelStatus(c *Client) {
 	}
 }
 
-// Close shuts down the kernel and clients.
+// Close flushes the notebook to disk, then shuts down the kernel and clients.
+//
+// Debounced saves (scheduleSave) are cancelled so a late AfterFunc cannot race
+// the final write; the projection is written once here so graceful shutdown
+// (SIGINT / CloseAll) does not drop the last ~500ms of edits or exec outputs.
 func (h *Hub) Close(ctx context.Context) error {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	if h.closed {
+		h.mu.Unlock()
+		return nil
+	}
+	h.closed = true
 	if h.unsub != nil {
 		h.unsub()
 		h.unsub = nil
 	}
 	if h.saveTimer != nil {
 		h.saveTimer.Stop()
+		h.saveTimer = nil
 	}
+	// Project under lock so we capture a consistent snapshot, then release
+	// before store I/O and kernel shutdown (Save would re-take the mutex).
+	nb := h.Doc.ProjectNotebook()
+	st := h.store
+	path := h.Path
 	for id, c := range h.clients {
 		close(c.Out)
 		delete(h.clients, id)
 	}
-	if h.kernel != nil {
-		err := h.kernel.Shutdown(ctx)
-		h.kernel = nil
-		return err
+	k := h.kernel
+	h.kernel = nil
+	h.mu.Unlock()
+
+	saveErr := st.Save(ctx, path, nb)
+
+	var shutErr error
+	if k != nil {
+		shutErr = k.Shutdown(ctx)
 	}
-	return nil
+	if saveErr != nil {
+		return saveErr
+	}
+	return shutErr
 }
 
 // DocRaw exposes underlying ygo doc.
