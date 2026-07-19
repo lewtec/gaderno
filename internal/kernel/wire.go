@@ -102,7 +102,9 @@ func DecodeWire(key []byte, frames [][]byte) (Message, error) {
 	}
 	sig, header, parent, meta, content := rest[0], rest[1], rest[2], rest[3], rest[4]
 	expect := sign(key, header, parent, meta, content)
-	if len(key) > 0 && !hmac.Equal(sig, []byte(expect)) {
+	// hmac.Equal → subtle.ConstantTimeCompare panics when lengths differ.
+	// Malformed or hostile signature frames must not kill the ZMQ readLoop.
+	if len(key) > 0 && !hmacEqualSafe(sig, []byte(expect)) {
 		return Message{}, fmt.Errorf("invalid HMAC signature")
 	}
 	var msg Message
@@ -134,4 +136,12 @@ func sign(key, header, parent, meta, content []byte) string {
 	mac.Write(meta)
 	mac.Write(content)
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// hmacEqualSafe is length-tolerant: unequal lengths are a failed verify, not a panic.
+func hmacEqualSafe(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	return hmac.Equal(a, b)
 }
