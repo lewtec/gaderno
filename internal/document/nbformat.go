@@ -27,6 +27,10 @@ const (
 )
 
 // Cell is a notebook cell.
+//
+// JSON tags keep omitempty for non-code cells. Code cells use MarshalJSON so
+// nbformat-required outputs and execution_count are always present (empty
+// array / null), not dropped by omitempty.
 type Cell struct {
 	ID             string         `json:"id,omitempty"`
 	CellType       CellType       `json:"cell_type"`
@@ -34,6 +38,52 @@ type Cell struct {
 	Source         *Multiline     `json:"source"`
 	Outputs        []Output       `json:"outputs,omitempty"`
 	ExecutionCount *int           `json:"execution_count,omitempty"`
+}
+
+// MarshalJSON encodes a cell. Code cells always include outputs (possibly
+// empty) and execution_count (null when unset) per nbformat v4.
+func (c Cell) MarshalJSON() ([]byte, error) {
+	meta := c.Metadata
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	src := c.Source
+	if src == nil {
+		src = NewMultiline("")
+	}
+	if c.CellType == CellCode {
+		outs := c.Outputs
+		if outs == nil {
+			outs = []Output{}
+		}
+		return json.Marshal(struct {
+			ID             string         `json:"id,omitempty"`
+			CellType       CellType       `json:"cell_type"`
+			Metadata       map[string]any `json:"metadata"`
+			Source         *Multiline     `json:"source"`
+			Outputs        []Output       `json:"outputs"`
+			ExecutionCount *int           `json:"execution_count"`
+		}{
+			ID:             c.ID,
+			CellType:       c.CellType,
+			Metadata:       meta,
+			Source:         src,
+			Outputs:        outs,
+			ExecutionCount: c.ExecutionCount,
+		})
+	}
+	// Markdown / raw: outputs and execution_count are not part of the schema.
+	return json.Marshal(struct {
+		ID       string         `json:"id,omitempty"`
+		CellType CellType       `json:"cell_type"`
+		Metadata map[string]any `json:"metadata"`
+		Source   *Multiline     `json:"source"`
+	}{
+		ID:       c.ID,
+		CellType: c.CellType,
+		Metadata: meta,
+		Source:   src,
+	})
 }
 
 // Output is a code cell output.
@@ -76,6 +126,7 @@ func NewEmpty() *Notebook {
 				CellType: CellCode,
 				Metadata: map[string]any{},
 				Source:   NewMultiline(""),
+				Outputs:  []Output{},
 			},
 		},
 	}
