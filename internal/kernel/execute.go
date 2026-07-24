@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ExecuteResult is a simplified view of one execute call.
@@ -41,6 +42,12 @@ type DisplayData struct {
 // MaxDisplayBytes is a soft per-mime payload cap (decoded character length).
 // Oversized mimes are dropped and noted in text/plain.
 const MaxDisplayBytes = 12 << 20 // 12 MiB
+
+// MaxStreamBytes caps accumulated stdout/stderr for one execute (UTF-8 bytes).
+// SPEC: hard caps; truncate streams with a visible notice (display already capped).
+const MaxStreamBytes = 12 << 20 // 12 MiB
+
+const streamTruncNotice = "\n[gaderno: truncated stream output]\n"
 
 // ExecuteOpts configures execute behavior.
 type ExecuteOpts struct {
@@ -90,6 +97,9 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 
 	// Stateful VT filters so progress spinners / CR rewrites collapse across chunks.
 	var outTerm, errTerm TermFilter
+	// Once a stream hits MaxStreamBytes we freeze the capped text and stop
+	// feeding the filter so a runaway print loop cannot OOM the process.
+	outCapped, errCapped := false, false
 
 	// When the caller's context cancels or we hit the execute deadline, send
 	// interrupt_request on the control channel and drain until this execute
@@ -99,6 +109,15 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 	const interruptGrace = 5 * time.Second
 	var stopCause error
 	interrupted := false
+
+	finalizeStreams := func() {
+		if !outCapped {
+			res.Stdout = capStream(outTerm.String())
+		}
+		if !errCapped {
+			res.Stderr = capStream(errTerm.String())
+		}
+	}
 
 	for {
 		if stopCause == nil {
@@ -117,8 +136,7 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 			if res.Status == "" {
 				res.Status = "abort"
 			}
-			res.Stdout = outTerm.String()
-			res.Stderr = errTerm.String()
+			finalizeStreams()
 			return res, stopCause
 		}
 
@@ -178,17 +196,35 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 					continue
 				}
 				if name == "stderr" {
-					errTerm.Write(text)
-					res.Stderr = errTerm.String()
-					if opts.OnStream != nil {
-						// Text is the full filtered stream so far (replace, not append).
-						opts.OnStream(StreamChunk{Name: "stderr", Text: res.Stderr})
+					if !errCapped {
+						errTerm.Write(text)
+						s := errTerm.String()
+						if len(s) > MaxStreamBytes {
+							res.Stderr = truncateStream(s, MaxStreamBytes)
+							errCapped = true
+							errTerm = TermFilter{} // release filter buffer
+						} else {
+							res.Stderr = s
+						}
+						if opts.OnStream != nil {
+							// Text is the full filtered stream so far (replace, not append).
+							opts.OnStream(StreamChunk{Name: "stderr", Text: res.Stderr})
+						}
 					}
 				} else {
-					outTerm.Write(text)
-					res.Stdout = outTerm.String()
-					if opts.OnStream != nil {
-						opts.OnStream(StreamChunk{Name: "stdout", Text: res.Stdout})
+					if !outCapped {
+						outTerm.Write(text)
+						s := outTerm.String()
+						if len(s) > MaxStreamBytes {
+							res.Stdout = truncateStream(s, MaxStreamBytes)
+							outCapped = true
+							outTerm = TermFilter{} // release filter buffer
+						} else {
+							res.Stdout = s
+						}
+						if opts.OnStream != nil {
+							opts.OnStream(StreamChunk{Name: "stdout", Text: res.Stdout})
+						}
 					}
 				}
 			case "error":
@@ -200,8 +236,7 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 				if state == "idle" && (parent == msgID || parent == "") {
 					// Only finish when this execute is idle; empty parent is rare
 					if parent == msgID {
-						res.Stdout = outTerm.String()
-						res.Stderr = errTerm.String()
+						finalizeStreams()
 						if stopCause != nil {
 							if res.Status == "" {
 								res.Status = "abort"
@@ -349,6 +384,33 @@ func tracebackFromContent(content map[string]any) []string {
 		out = append(out, FilterTerminal(line))
 	}
 	return out
+}
+
+// capStream returns s unchanged when under MaxStreamBytes, else truncated.
+func capStream(s string) string {
+	if len(s) <= MaxStreamBytes {
+		return s
+	}
+	return truncateStream(s, MaxStreamBytes)
+}
+
+// truncateStream cuts s to at most max UTF-8 bytes and appends a visible notice.
+func truncateStream(s string, max int) string {
+	if max <= 0 {
+		return strings.TrimSpace(streamTruncNotice)
+	}
+	if len(s) <= max {
+		return s
+	}
+	notice := streamTruncNotice
+	if len(notice) >= max {
+		return notice[:max]
+	}
+	cut := max - len(notice)
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + notice
 }
 
 // normalizeMimeBundle flattens Jupyter mime values (string | []string) and
