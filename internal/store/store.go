@@ -48,10 +48,18 @@ func CleanRel(rel string) (string, error) {
 
 // Load reads and parses a notebook at relative path.
 // Takes a shared advisory flock while reading (best-effort on unsupported FS).
+// Rejects symlinks that leave the jail and non-regular files (fifo/device/dir).
 func (s *Store) Load(_ context.Context, rel string) (*document.Notebook, error) {
 	abs, err := s.resolve(rel)
 	if err != nil {
 		return nil, err
+	}
+	fi, err := os.Stat(abs)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file")
 	}
 	f, err := os.Open(abs)
 	if err != nil {
@@ -164,23 +172,124 @@ func (s *Store) CreateNew(ctx context.Context, rel string, nb *document.Notebook
 	return nil
 }
 
+// resolve returns an absolute path under the workspace root.
+// Symlinks are followed only when the final real path stays inside the jail
+// (lexical Join alone is not enough — Open would otherwise read outside).
 func (s *Store) resolve(rel string) (string, error) {
 	rel, err := CleanRel(rel)
 	if err != nil {
 		return "", err
 	}
-	root := filepath.Clean(s.root)
+	root, err := s.jailRoot()
+	if err != nil {
+		return "", err
+	}
 	abs := filepath.Join(root, rel)
-	// filepath.Rel rejects paths outside root more reliably than HasPrefix
-	// (avoids "/tmp/foo" vs "/tmp/foobar" prefix tricks when root is absolute).
-	relToRoot, err := filepath.Rel(root, abs)
-	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
+	if !underRoot(root, abs) {
 		return "", fmt.Errorf("path escapes root")
 	}
-	if relToRoot == "." {
-		return "", fmt.Errorf("empty path")
+
+	// Existing path (file or symlink): evaluate and re-check the jail.
+	if _, err := os.Lstat(abs); err == nil {
+		resolved, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			return "", err
+		}
+		if !underRoot(root, resolved) {
+			return "", fmt.Errorf("path escapes root")
+		}
+		return resolved, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
 	}
-	return abs, nil
+
+	// Leaf does not exist yet (Save/CreateNew): keep every existing ancestor
+	// inside the jail. CleanRel already removed ".." so the tail is safe to join.
+	parent, err := resolveExistingDir(root, filepath.Dir(abs))
+	if err != nil {
+		return "", err
+	}
+	out := filepath.Join(parent, filepath.Base(abs))
+	if !underRoot(root, out) {
+		return "", fmt.Errorf("path escapes root")
+	}
+	return out, nil
+}
+
+func (s *Store) jailRoot() (string, error) {
+	root, err := filepath.Abs(s.root)
+	if err != nil {
+		return "", err
+	}
+	root = filepath.Clean(root)
+	// Compare against the real root path so EvalSymlinks results match.
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	return root, nil
+}
+
+// underRoot reports whether candidate is root or a path beneath it.
+// Uses filepath.Rel (not strings.HasPrefix) to avoid /tmp/foo vs /tmp/foobar.
+func underRoot(root, candidate string) bool {
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return false
+	}
+	return true
+}
+
+// resolveExistingDir EvalSymlinks dir when it exists, or the nearest existing
+// ancestor, then re-joins any missing tail. Every resolved ancestor must stay
+// under root (blocks intermediate directory symlinks that leave the jail).
+func resolveExistingDir(root, dir string) (string, error) {
+	dir = filepath.Clean(dir)
+	if dir == root {
+		return root, nil
+	}
+	if !underRoot(root, dir) {
+		return "", fmt.Errorf("path escapes root")
+	}
+
+	var missing []string
+	cur := dir
+	for {
+		if cur == root {
+			out := root
+			for i := len(missing) - 1; i >= 0; i-- {
+				out = filepath.Join(out, missing[i])
+			}
+			return out, nil
+		}
+		if _, err := os.Lstat(cur); err == nil {
+			resolved, err := filepath.EvalSymlinks(cur)
+			if err != nil {
+				return "", err
+			}
+			if !underRoot(root, resolved) {
+				return "", fmt.Errorf("path escapes root")
+			}
+			out := resolved
+			for i := len(missing) - 1; i >= 0; i-- {
+				out = filepath.Join(out, missing[i])
+			}
+			if !underRoot(root, out) {
+				return "", fmt.Errorf("path escapes root")
+			}
+			return out, nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(cur))
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", fmt.Errorf("path escapes root")
+		}
+		cur = parent
+	}
 }
 
 // IsNotExist reports whether err is a missing file.
