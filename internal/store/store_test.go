@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lucasew/gaderno/internal/document"
 )
@@ -189,5 +190,120 @@ func TestConcurrentSavesSerialize(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("unexpected source %q", src)
+	}
+}
+
+func TestLoadRejectsSymlinkEscape(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "secret.ipynb")
+	// Minimal valid notebook so a naive Open would succeed if the jail failed.
+	if err := os.WriteFile(outside, []byte(`{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {},
+  "cells": [{"cell_type":"code","metadata":{},"source":"SECRET","outputs":[],"execution_count":null}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "escape.ipynb")); err != nil {
+		t.Fatal(err)
+	}
+	st := New(dir)
+	nb, err := st.Load(nil, "escape.ipynb")
+	if err == nil {
+		t.Fatalf("expected symlink escape to fail, got notebook source %q", nb.Cells[0].SourceString())
+	}
+	if !strings.Contains(err.Error(), "escapes root") {
+		t.Fatalf("want escapes root, got %v", err)
+	}
+}
+
+func TestLoadRejectsDirSymlinkEscape(t *testing.T) {
+	dir := t.TempDir()
+	outsideDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outsideDir, "x.ipynb"), []byte(`{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {},
+  "cells": [{"cell_type":"code","metadata":{},"source":"OUT","outputs":[],"execution_count":null}]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideDir, filepath.Join(dir, "sub")); err != nil {
+		t.Fatal(err)
+	}
+	st := New(dir)
+	if _, err := st.Load(nil, "sub/x.ipynb"); err == nil {
+		t.Fatal("expected intermediate dir symlink escape to fail")
+	}
+}
+
+func TestLoadAllowsInRootSymlink(t *testing.T) {
+	dir := t.TempDir()
+	st := New(dir)
+	nb := document.NewEmpty()
+	nb.Cells[0].Source = document.NewMultiline("inside")
+	if err := st.Save(nil, "real.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real.ipynb", filepath.Join(dir, "link.ipynb")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Load(nil, "link.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Cells[0].SourceString() != "inside" {
+		t.Fatalf("source %q", got.Cells[0].SourceString())
+	}
+}
+
+func TestSaveRejectsSymlinkEscape(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "victim.ipynb")
+	if err := os.WriteFile(outside, []byte("ORIGINAL"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "escape.ipynb")); err != nil {
+		t.Fatal(err)
+	}
+	st := New(dir)
+	nb := document.NewEmpty()
+	nb.Cells[0].Source = document.NewMultiline("PWNED")
+	if err := st.Save(nil, "escape.ipynb", nb); err == nil {
+		t.Fatal("expected save via escaping symlink to fail")
+	}
+	raw, err := os.ReadFile(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "ORIGINAL" {
+		t.Fatalf("outside file modified: %q", raw)
+	}
+}
+
+func TestLoadRejectsNonRegular(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "fifo.ipynb")
+	if err := os.Mkdir(path, 0o755); err != nil {
+		// Prefer a directory over fifo so the test is portable (no syscall.Mkfifo).
+		t.Fatal(err)
+	}
+	st := New(dir)
+	done := make(chan error, 1)
+	go func() {
+		_, err := st.Load(nil, "fifo.ipynb")
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected error for non-regular path")
+		}
+		if !strings.Contains(err.Error(), "regular file") {
+			t.Fatalf("want not a regular file, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Load hung on non-regular path")
 	}
 }
