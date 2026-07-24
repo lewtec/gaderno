@@ -120,7 +120,10 @@ func (g *Gate) TokenFromRequest(r *http.Request) string {
 	return ""
 }
 
-// Authorized reports whether r carries a valid shared token or (for WS) ticket.
+// Authorized reports whether r carries a valid shared token or (for WS paths)
+// a one-shot ticket. Tickets are only accepted on /ws/… paths (SPEC §5:
+// short-lived WS tickets). Non-WS requests that present ?ticket= do not
+// consume the ticket, so a leaked ticket URL cannot mint API access.
 func (g *Gate) Authorized(r *http.Request) bool {
 	if !g.Enabled() {
 		return true
@@ -129,10 +132,17 @@ func (g *Gate) Authorized(r *http.Request) bool {
 		return true
 	}
 	// One-shot ticket for WebSocket clients that cannot set headers.
-	if t := r.URL.Query().Get("ticket"); t != "" {
-		return g.ConsumeTicket(t)
+	if isWSPath(r.URL.Path) {
+		if t := r.URL.Query().Get("ticket"); t != "" {
+			return g.ConsumeTicket(t)
+		}
 	}
 	return false
+}
+
+// isWSPath reports whether path is under the WebSocket mount (e.g. /ws/notebooks/…).
+func isWSPath(path string) bool {
+	return strings.HasPrefix(path, "/ws/")
 }
 
 // SetCookie writes an HttpOnly session cookie holding the shared token.

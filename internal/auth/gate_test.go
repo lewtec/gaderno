@@ -184,6 +184,37 @@ func TestTicketOnWSPath(t *testing.T) {
 	}
 }
 
+func TestTicketRejectedOnNonWSPath(t *testing.T) {
+	g := New("s3cret")
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("upgraded"))
+	})
+	h := g.Middleware(mux)
+
+	id, _, err := g.MintTicket()
+	if err != nil || id == "" {
+		t.Fatalf("mint: %v", err)
+	}
+
+	// Ticket must not authorize ordinary HTTP API paths (and must not be consumed).
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/x?ticket="+id, nil))
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("non-ws ticket: code=%d want 401", rr.Code)
+	}
+
+	// Same ticket still works once on a WebSocket path.
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/ws/notebooks/foo.ipynb?ticket="+id, nil))
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "upgraded") {
+		t.Fatalf("ws after non-ws attempt: %d %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHTMLAuthPage(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
