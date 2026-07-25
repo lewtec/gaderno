@@ -3,6 +3,7 @@ package kernel
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestParseInspectReply(t *testing.T) {
@@ -36,5 +37,34 @@ func TestParseInspectReply(t *testing.T) {
 	empty := parseInspectReply(nil, 1)
 	if empty.Found || empty.DetailLevel != 1 {
 		t.Fatalf("%#v", empty)
+	}
+}
+
+func TestParseInspectReplyCapsPayload(t *testing.T) {
+	// Oversized inspect body (e.g. huge __doc__) must not grow unbounded.
+	// Leave room for the truncation notice after the byte cap.
+	big := strings.Repeat("D", MaxInspectBytes+4096)
+	res := parseInspectReply(map[string]any{
+		"status": "ok",
+		"found":  true,
+		"data": map[string]any{
+			"text/plain": big,
+		},
+	}, 1)
+	if !res.Found {
+		t.Fatalf("expected found")
+	}
+	if !strings.Contains(res.Text, "[gaderno: truncated inspect output]") {
+		t.Fatalf("missing truncate notice: %q…", res.Text[len(res.Text)-80:])
+	}
+	// Body before notice is capped; total may be slightly larger with the notice.
+	if len(res.Text) > MaxInspectBytes+80 {
+		t.Fatalf("text still too large: %d", len(res.Text))
+	}
+	if !utf8.ValidString(res.Text) {
+		t.Fatalf("invalid UTF-8 after truncate")
+	}
+	if len(res.HTML) == 0 {
+		t.Fatalf("expected HTML")
 	}
 }
