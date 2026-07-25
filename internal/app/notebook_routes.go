@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -14,9 +13,8 @@ import (
 	"github.com/lucasew/gaderno/internal/document"
 	"github.com/lucasew/gaderno/internal/session"
 	"github.com/lucasew/gaderno/internal/store"
+	"github.com/lucasew/gaderno/internal/ui/pages"
 )
-
-var notebookPage = loadTemplate("notebook.html")
 
 func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Registry, defaultKernel string, logger *slog.Logger) {
 	mux.HandleFunc("GET /n/{path...}", func(w http.ResponseWriter, r *http.Request) {
@@ -31,34 +29,39 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			http.Error(w, "load failed", http.StatusInternalServerError)
 			return
 		}
-		type cellView struct {
-			Type       string
-			ID         string
-			Source     string
-			SourceJSON template.JS
-		}
-		var cells []cellView
+		var cells []pages.CellView
 		for _, c := range nb.Cells {
 			src := c.SourceString()
-			raw, _ := json.Marshal(src)
-			cells = append(cells, cellView{
+			raw, err := json.Marshal(src)
+			if err != nil {
+				logger.Error("marshal cell source", "err", err)
+				http.Error(w, "render failed", http.StatusInternalServerError)
+				return
+			}
+			cells = append(cells, pages.CellView{
 				Type:       string(c.CellType),
 				ID:         c.ID,
-				Source:     src,
-				SourceJSON: template.JS(raw),
+				SourceJSON: string(raw),
 			})
 		}
-		pathJSON, _ := json.Marshal(path)
-		kernelJSON, _ := json.Marshal(defaultKernel)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := notebookPage.Execute(w, map[string]any{
-			"Path":       path,
-			"PathJSON":   template.JS(pathJSON),
-			"KernelJSON": template.JS(kernelJSON),
-			"Cells":      cells,
-		}); err != nil {
-			logger.Error("render notebook", "err", err)
+		pathJSON, err := json.Marshal(path)
+		if err != nil {
+			logger.Error("marshal path", "err", err)
+			http.Error(w, "render failed", http.StatusInternalServerError)
+			return
 		}
+		kernelJSON, err := json.Marshal(defaultKernel)
+		if err != nil {
+			logger.Error("marshal kernel", "err", err)
+			http.Error(w, "render failed", http.StatusInternalServerError)
+			return
+		}
+		renderTempl(w, r, logger, pages.Notebook(pages.NotebookData{
+			Path:       path,
+			PathJSON:   string(pathJSON),
+			KernelJSON: string(kernelJSON),
+			Cells:      cells,
+		}))
 	})
 
 	mux.HandleFunc("POST /api/save", func(w http.ResponseWriter, r *http.Request) {

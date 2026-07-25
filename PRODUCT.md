@@ -12,7 +12,7 @@ Primary tasks: open a workspace, open/create notebooks, edit cells, run code, se
 Quiet · Spacious · Polished · Quiet delight (cobalt signal; Go **G** mark as logo only)
 
 ## Visual direction
-- **daisyUI 5 + Tailwind 4**: source in `styles/input.css`, `bun run build:css` → embedded `internal/web/static/app.css`
+- **daisyUI 5 + Tailwind 4 browser**: vendored from npm into `internal/web/static/vendor/` (Renovate updates `package.json`); product theme CSS inlined via templ head assets
 - **Spacier product UI** that stays usable on mobile (edit + run is the bar)
 - **Icon chrome**: G · session status · chat · avatar — icons only on mobile
 - **Cells**: play + execution count in the gutter; markdown preview-first; Colab-style insert gaps

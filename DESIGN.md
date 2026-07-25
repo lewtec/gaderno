@@ -4,9 +4,10 @@
 Notebook product surface with **daisyUI 5 + Tailwind 4**: spacier, polished, mobile-usable. Icon app chrome, play-in-gutter cells, preview-first markdown, closable chat panel.
 
 ## Stack
-- Source: `styles/input.css` (`@plugin "daisyui"`, custom themes)
-- Build: `bun run build:css` → `internal/web/static/app.css` (embedded)
-- Themes: `gaderno-light` (default) / `gaderno-dark` (`prefersdark` + avatar menu)
+- Pages: [templ](https://templ.guide) under `internal/ui/` (`go tool templ generate`)
+- Framework CSS: vendored npm `daisyui` + `@tailwindcss/browser` → `internal/web/static/vendor/` (Renovate updates `package.json`)
+- Product CSS + theme tokens: inlined head assets in `internal/ui/layout/assets.go`
+- Themes: `gaderno-light` (default) / `gaderno-dark` (system preference + avatar menu)
 - Components: navbar, btn, badge, menu, modal, input, dropdown
 
 ## Color
