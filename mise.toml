@@ -9,8 +9,8 @@ svu = "3.3.0"
 run = "go mod tidy && bun install"
 
 [tasks.codegen]
-description = "Rebuild embedded web CSS and CodeMirror bundle"
-run = "bun run build"
+description = "go generate: vendor web assets, editor bundle, templ"
+run = "go generate ./..."
 
 [tasks.format]
 description = "Format Go packages"

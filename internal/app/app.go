@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/lucasew/gaderno/internal/auth"
@@ -112,7 +113,7 @@ func withLogging(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		if r.URL.Path != "/healthz" && r.URL.Path != "/static/app.css" && r.URL.Path != "/static/app.js" {
+		if r.URL.Path != "/healthz" && !strings.HasPrefix(r.URL.Path, "/static/") {
 			// Never log raw query: may contain ?token= during bootstrap.
 			logger.Info("http", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
 		}

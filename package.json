@@ -2,24 +2,23 @@
   "name": "gaderno",
   "private": true,
   "scripts": {
-    "build:css": "bunx @tailwindcss/cli -i ./styles/input.css -o ./internal/web/static/app.css --minify",
+    "vendor:web": "bun scripts/vendor-web.ts",
     "build:js": "bun build ./web/editor/main.js --outfile=./internal/web/static/editor.js --format=esm --minify",
-    "build": "bun run build:css && bun run build:js"
+    "build": "bun run vendor:web && bun run build:js"
+  },
+  "dependencies": {
+    "@tailwindcss/browser": "4.3.3",
+    "daisyui": "5.6.18",
+    "lib0": "^0.2.117",
+    "y-codemirror.next": "^0.3.5",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
     "@codemirror/lang-markdown": "^6.3.2",
     "@codemirror/lang-python": "^6.1.7",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.5",
-    "@tailwindcss/cli": "^4.1.11",
-    "codemirror": "^6.0.1",
-    "daisyui": "^5.6.16",
-    "tailwindcss": "^4.1.11"
-  },
-  "dependencies": {
-    "lib0": "^0.2.117",
-    "y-codemirror.next": "^0.3.5",
-    "y-protocols": "^1.0.7",
-    "yjs": "^13.6.31"
+    "codemirror": "^6.0.1"
   }
 }

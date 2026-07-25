@@ -2,25 +2,13 @@ package app
 
 import (
 	"encoding/json"
-	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
 
-	"github.com/lucasew/gaderno/internal/web"
+	"github.com/lucasew/gaderno/internal/ui/pages"
 	"github.com/lucasew/gaderno/internal/workspace"
 )
-
-func loadTemplate(name string) *template.Template {
-	b, err := fs.ReadFile(web.Templates, "templates/"+name)
-	if err != nil {
-		panic(err)
-	}
-	return template.Must(template.New(name).Parse(string(b)))
-}
-
-var listPage = loadTemplate("workspace.html")
 
 func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger *slog.Logger) {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -30,10 +18,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger
 			http.Error(w, "list failed", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := listPage.Execute(w, map[string]any{"Notebooks": list}); err != nil {
-			logger.Error("render list", "err", err)
-		}
+		renderTempl(w, r, logger, pages.Workspace(pages.WorkspaceData{Notebooks: list}))
 	})
 
 	mux.HandleFunc("GET /api/notebooks", func(w http.ResponseWriter, r *http.Request) {

@@ -23,7 +23,7 @@ Architecture and product contract: [`SPEC.md`](SPEC.md). UI brief: [`PRODUCT.md`
 | Need | Notes |
 |------|--------|
 | **Go 1.26+** | via [mise](https://mise.jdx.dev/) (`mise.toml`) or your own toolchain |
-| **Bun** | only for building embedded CSS/JS (`mise run codegen`) |
+| **Bun** | vendoring daisyUI/Tailwind browser + CodeMirror bundle (`mise run codegen`) |
 | **A kernel** | classic Jupyter kernelspec **and/or** [`uv`](https://github.com/astral-sh/uv) on `PATH` for synthetic Pythons |
 
 Kernels are **not** bundled in the release binary.
@@ -113,7 +113,7 @@ Outputs ship as full mime bundles; the client renders `image/*` and `text/plain`
 
 ```bash
 mise run install
-mise run codegen     # embed CSS + CodeMirror bundle
+mise run codegen     # vendor CSS/JS, editor bundle, templ generate
 mise run format
 mise run ci
 ```
@@ -127,8 +127,9 @@ internal/
   kernel/             # discovery, spawn, ZMQ, execute/complete/inspect
   session/            # hub, clients, chat buffer
   crdt/ document/     # ygo notebook + nbformat
-  web/                # embedded templates + static
-styles/ web/          # Tailwind/daisyUI + editor sources
+  web/                # editor source (CodeMirror/Yjs)
+  internal/ui/        # templ pages + inlined product CSS
+  internal/web/static # embedded client + vendored daisyUI/Tailwind
 ```
 
 ### Release
