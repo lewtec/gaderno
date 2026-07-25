@@ -13,6 +13,11 @@ import (
 	"github.com/lucasew/gaderno/internal/session"
 )
 
+// MaxWSMessageBytes caps a single inbound WebSocket frame (text control or
+// binary CRDT sync). Matches the kernel display/stream soft cap so one peer
+// cannot OOM the process with multi-GB updates (SPEC: CRDT spam size limits).
+const MaxWSMessageBytes = 12 << 20 // 12 MiB
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024 * 64,
 	WriteBufferSize: 1024 * 64,
@@ -48,6 +53,8 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 			logger.Error("ws upgrade", "err", err)
 			return
 		}
+		// Bound assembled message size before any CRDT/control handling.
+		conn.SetReadLimit(MaxWSMessageBytes)
 		clientID := uuid.NewString()
 		client := hub.AddClient(clientID)
 		defer hub.RemoveClient(clientID)
