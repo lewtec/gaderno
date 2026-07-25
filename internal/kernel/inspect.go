@@ -18,6 +18,11 @@ type InspectResult struct {
 	DetailLevel int `json:"detail_level"`
 }
 
+// MaxInspectBytes caps inspect text/plain (or fallback text/html) before we
+// build ANSI HTML / plain text for the client. Mirrors the large-output policy
+// (display mimes use MaxDisplayBytes); tooltips do not need multi-MiB docs.
+const MaxInspectBytes = 256 << 10 // 256 KiB
+
 // Inspect asks the kernel for docs/signature at cursorPos.
 // detailLevel: 0 abbreviated, 1 full (Jupyter protocol).
 // Best-effort: returns Found=false when shell is busy with execute.
@@ -25,12 +30,8 @@ func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLev
 	if m.Conn == nil {
 		return InspectResult{}, fmt.Errorf("no connection")
 	}
-	if cursorPos < 0 {
-		cursorPos = 0
-	}
-	if cursorPos > len(code) {
-		cursorPos = len(code)
-	}
+	// Reuse complete code window so huge cells do not inflate shell traffic.
+	code, cursorPos = clampCompleteCode(code, cursorPos)
 	if detailLevel < 0 {
 		detailLevel = 0
 	}
@@ -123,6 +124,10 @@ func parseInspectReply(content map[string]any, detailLevel int) InspectResult {
 		}
 	}
 	if rawPlain != "" {
+		if len(rawPlain) > MaxInspectBytes {
+			rawPlain = truncateUTF8(rawPlain, MaxInspectBytes)
+			rawPlain += "\n[gaderno: truncated inspect output]"
+		}
 		// Colored tooltip markup (escaped text + classed spans).
 		res.HTML = ANSIToHTML(rawPlain)
 		// Plain fallback for clients / signature-line extraction.
