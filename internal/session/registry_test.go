@@ -15,7 +15,7 @@ func TestGetOrOpenCanonicalPath(t *testing.T) {
 	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	reg := NewRegistry(st, dir, "python3")
+	reg := NewRegistry(st, dir)
 	defer reg.CloseAll(context.Background())
 
 	h1, err := reg.GetOrOpen(context.Background(), "./n.ipynb")
@@ -45,7 +45,7 @@ func TestGetOrOpenCanonicalPath(t *testing.T) {
 func TestGetOrOpenRejectsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
-	reg := NewRegistry(st, dir, "python3")
+	reg := NewRegistry(st, dir)
 	for _, p := range []string{"", ".", ".."} {
 		if _, err := reg.GetOrOpen(context.Background(), p); err == nil {
 			t.Fatalf("GetOrOpen(%q) expected error", p)

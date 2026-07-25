@@ -16,8 +16,7 @@ type Registry struct {
 }
 
 // NewRegistry creates an empty registry.
-// defaultKernel is unused for autostart; kept for CLI compat (ignored).
-func NewRegistry(st *store.Store, root, _ string) *Registry {
+func NewRegistry(st *store.Store, root string) *Registry {
 	return &Registry{
 		hubs:  make(map[string]*Hub),
 		store: st,

@@ -44,7 +44,7 @@ func TestLoadCurrentNotebookPrefersLiveCRDT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reg := session.NewRegistry(st, dir, "")
+	reg := session.NewRegistry(st, dir)
 	defer reg.CloseAll(context.Background())
 
 	hub, err := reg.GetOrOpen(context.Background(), "n.ipynb")
@@ -87,7 +87,7 @@ func TestLoadCurrentNotebookPrefersLiveCRDT(t *testing.T) {
 func TestLoadCurrentNotebookMissing(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
-	reg := session.NewRegistry(st, dir, "")
+	reg := session.NewRegistry(st, dir)
 	defer reg.CloseAll(context.Background())
 	_, err := loadCurrentNotebook(context.Background(), st, reg, "missing.ipynb")
 	if err == nil || !store.IsNotExist(err) {
