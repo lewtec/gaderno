@@ -3,6 +3,7 @@ package kernel
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 )
 
 var (
@@ -17,6 +20,11 @@ var (
 	uvSpecs  []Spec
 	uvLoaded bool
 )
+
+// uvListTimeout bounds `uv python list` during catalog load. Catalog is built
+// under sync.Once; an unbounded hang would freeze every LoadCatalog caller for
+// the process lifetime (kernel chooser, bind checks, metadata resolution).
+var uvListTimeout = 15 * time.Second
 
 func resetUVCache() {
 	uvOnce = sync.Once{}
@@ -39,11 +47,32 @@ func loadUVSynthetics() []Spec {
 	if err != nil {
 		return nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), uvListTimeout)
+	defer cancel()
+	// Plain Command (not CommandContext): we own the timeout so we can SIGKILL
+	// the whole process group. CommandContext only signals the leader and can
+	// leave shell grandchildren (or uv helpers) running after the deadline.
 	cmd := exec.Command(uvPath, "python", "list")
+	setProcessGroup(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		return nil
+	}
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- cmd.Wait() }()
+	select {
+	case err := <-waitDone:
+		if err != nil {
+			// Non-zero exit / signal → no uv synthetics (Jupyter kernelspecs
+			// still load). Once still completes so the process recovers with an
+			// empty uv group rather than hanging forever.
+			return nil
+		}
+	case <-ctx.Done():
+		_ = killProcessGroup(cmd, syscall.SIGKILL)
+		<-waitDone
 		return nil
 	}
 
