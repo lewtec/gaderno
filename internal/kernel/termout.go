@@ -6,6 +6,15 @@ import (
 	"unicode/utf8"
 )
 
+// Visible-buffer bounds for TermFilter. Real notebook streams stay well under
+// these; hostile/buggy kernels can otherwise force multi-GiB allocations with
+// a few bytes of CSI (cursor-down 1e9, CUP huge column, etc.).
+const (
+	termMaxRows     = 4096
+	termMaxCols     = 8192
+	termMaxCSIParam = 1_000_000 // absurd for terminals; still hard-capped
+)
+
 // TermFilter turns terminal-oriented stream output into plain text suitable for
 // notebook cells: strips ANSI/OSC/private modes, and applies a small set of
 // cursor/line controls so progress spinners (CR, erase-line, cursor-up) collapse
@@ -90,32 +99,74 @@ func FilterTerminal(s string) string {
 	return f.String()
 }
 
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func (t *TermFilter) clampCursor() {
+	t.row = clampInt(t.row, 0, termMaxRows-1)
+	t.col = clampInt(t.col, 0, termMaxCols-1)
+}
+
 func (t *TermFilter) ensureRow() {
+	t.clampCursor()
 	for len(t.lines) <= t.row {
 		t.lines = append(t.lines, nil)
 	}
 }
 
 func (t *TermFilter) put(r rune) {
+	t.clampCursor()
+	// Line already full: drop further glyphs rather than growing past the cap.
+	if t.col >= termMaxCols {
+		return
+	}
 	t.ensureRow()
 	line := t.lines[t.row]
 	if t.col < len(line) {
 		line[t.col] = r
 	} else {
-		// pad if needed
-		for len(line) < t.col {
+		// Pad only up to col (already clamped); never beyond termMaxCols.
+		for len(line) < t.col && len(line) < termMaxCols {
 			line = append(line, ' ')
+		}
+		if len(line) >= termMaxCols {
+			t.lines[t.row] = line[:termMaxCols]
+			return
 		}
 		line = append(line, r)
 	}
+	if len(line) > termMaxCols {
+		line = line[:termMaxCols]
+	}
 	t.lines[t.row] = line
 	t.col++
+	if t.col > termMaxCols {
+		t.col = termMaxCols
+	}
 }
 
 func (t *TermFilter) newline() {
-	t.row++
 	t.col = 0
-	t.ensureRow()
+	if t.row < termMaxRows-1 {
+		t.row++
+		t.ensureRow()
+		return
+	}
+	// At bottom of the window: scroll oldest line off so long honest streams
+	// keep the tail instead of stalling on the last row forever.
+	if len(t.lines) > 0 {
+		t.lines = t.lines[1:]
+	}
+	t.lines = append(t.lines, nil)
+	t.row = len(t.lines) - 1
+	t.clampCursor()
 }
 
 func (t *TermFilter) consumeESC(s string, i int) int {
@@ -231,9 +282,7 @@ func (t *TermFilter) applyCSI(params string, final byte) {
 	case 'A': // cursor up
 		n := csiNum(p, 1)
 		t.row -= n
-		if t.row < 0 {
-			t.row = 0
-		}
+		t.clampCursor()
 	case 'B': // cursor down
 		n := csiNum(p, 1)
 		t.row += n
@@ -241,18 +290,15 @@ func (t *TermFilter) applyCSI(params string, final byte) {
 	case 'C': // cursor forward
 		n := csiNum(p, 1)
 		t.col += n
+		t.clampCursor()
 	case 'D': // cursor back
 		n := csiNum(p, 1)
 		t.col -= n
-		if t.col < 0 {
-			t.col = 0
-		}
+		t.clampCursor()
 	case 'G': // cursor horizontal absolute (1-based)
 		n := csiNum(p, 1)
 		t.col = n - 1
-		if t.col < 0 {
-			t.col = 0
-		}
+		t.clampCursor()
 	case 'H', 'f': // cursor position row;col (1-based)
 		row, col := 1, 1
 		if parts := strings.Split(p, ";"); len(parts) >= 1 {
@@ -264,13 +310,7 @@ func (t *TermFilter) applyCSI(params string, final byte) {
 			}
 		}
 		t.row = row - 1
-		if t.row < 0 {
-			t.row = 0
-		}
 		t.col = col - 1
-		if t.col < 0 {
-			t.col = 0
-		}
 		t.ensureRow()
 	case 's', 'u': // save/restore cursor — ignore
 	case 'n', 'c', 'p': // device status / DA / DECRQM replies — ignore
@@ -291,6 +331,12 @@ func csiNum(p string, def int) int {
 	n, err := strconv.Atoi(p)
 	if err != nil {
 		return def
+	}
+	if n < 0 {
+		return def
+	}
+	if n > termMaxCSIParam {
+		return termMaxCSIParam
 	}
 	return n
 }

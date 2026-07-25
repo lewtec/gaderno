@@ -110,3 +110,75 @@ func TestFilterTerminal_oscHyperlink(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestTermFilter_csiCursorDownDoesNotAllocateHuge(t *testing.T) {
+	// Pre-fix: CSI B with a huge param called ensureRow in a loop until
+	// len(lines) <= row — multi-GiB from a short escape sequence.
+	var f TermFilter
+	f.Write("\x1b[999999999Bboom")
+	if f.row >= termMaxRows {
+		t.Fatalf("row %d exceeds bound %d", f.row, termMaxRows-1)
+	}
+	if len(f.lines) > termMaxRows {
+		t.Fatalf("lines %d exceeds bound %d", len(f.lines), termMaxRows)
+	}
+	got := f.String()
+	if !strings.Contains(got, "boom") {
+		t.Fatalf("expected content after bounded move: %q", got)
+	}
+}
+
+func TestTermFilter_csiCursorForwardDoesNotPadHuge(t *testing.T) {
+	var f TermFilter
+	f.Write("\x1b[999999999Cx")
+	if f.col > termMaxCols {
+		t.Fatalf("col %d exceeds bound %d", f.col, termMaxCols)
+	}
+	if len(f.lines) == 0 {
+		t.Fatal("expected a line")
+	}
+	if len(f.lines[0]) > termMaxCols {
+		t.Fatalf("line len %d exceeds bound %d", len(f.lines[0]), termMaxCols)
+	}
+}
+
+func TestTermFilter_csiCUPClamped(t *testing.T) {
+	var f TermFilter
+	// Move only (no glyphs): absolute CUP must clamp without allocating huge.
+	f.Write("\x1b[999999;999999H")
+	if f.row != termMaxRows-1 {
+		t.Fatalf("row=%d want %d", f.row, termMaxRows-1)
+	}
+	if f.col != termMaxCols-1 {
+		t.Fatalf("col=%d want %d", f.col, termMaxCols-1)
+	}
+	if len(f.lines) > termMaxRows {
+		t.Fatalf("lines %d", len(f.lines))
+	}
+}
+
+func TestTermFilter_scrollsWhenExceedingMaxRows(t *testing.T) {
+	var f TermFilter
+	// Write more than termMaxRows lines of plain text.
+	const extra = 10
+	for i := 0; i < termMaxRows+extra; i++ {
+		f.Write("L" + strings.Repeat("x", 3) + "\n")
+	}
+	if len(f.lines) > termMaxRows {
+		t.Fatalf("lines %d > max %d", len(f.lines), termMaxRows)
+	}
+	got := f.String()
+	// Oldest lines should have scrolled off; tail content remains.
+	if strings.Count(got, "\n") > termMaxRows {
+		t.Fatalf("too many newlines in %d-byte output", len(got))
+	}
+}
+
+func TestCSINumClampsHuge(t *testing.T) {
+	if n := csiNum("999999999", 1); n != termMaxCSIParam {
+		t.Fatalf("csiNum huge = %d want %d", n, termMaxCSIParam)
+	}
+	if n := csiNum("-3", 1); n != 1 {
+		t.Fatalf("csiNum negative = %d want def 1", n)
+	}
+}
