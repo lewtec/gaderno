@@ -2,14 +2,13 @@ package pages
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 )
 
 func TestWorkspaceRender(t *testing.T) {
 	var buf bytes.Buffer
-	if err := Workspace(WorkspaceData{Notebooks: []string{"a.ipynb"}}).Render(context.Background(), &buf); err != nil {
+	if err := Workspace(WorkspaceData{Notebooks: []string{"a.ipynb"}}).Render(t.Context(), &buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -27,7 +26,7 @@ func TestNotebookRenderJSON(t *testing.T) {
 		PathJSON:   `"demo.ipynb"`,
 		KernelJSON: `"python3"`,
 		Cells:      []CellView{{Type: "code", ID: "c1", SourceJSON: `"print(1)"`}},
-	}).Render(context.Background(), &buf)
+	}).Render(t.Context(), &buf)
 	if err != nil {
 		t.Fatal(err)
 	}
