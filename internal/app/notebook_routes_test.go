@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,14 +39,14 @@ func TestLoadCurrentNotebookPrefersLiveCRDT(t *testing.T) {
 	st := store.New(dir)
 	nb := document.NewEmpty()
 	nb.Cells[0].Source = document.NewMultiline("print('disk')\n")
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
 
 	reg := session.NewRegistry(st, dir)
-	defer reg.CloseAll(context.Background())
+	defer reg.CloseAll(t.Context())
 
-	hub, err := reg.GetOrOpen(context.Background(), "n.ipynb")
+	hub, err := reg.GetOrOpen(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +57,7 @@ func TestLoadCurrentNotebookPrefersLiveCRDT(t *testing.T) {
 	}
 
 	// Disk still has old content.
-	disk, err := st.Load(context.Background(), "n.ipynb")
+	disk, err := st.Load(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +65,7 @@ func TestLoadCurrentNotebookPrefersLiveCRDT(t *testing.T) {
 		t.Fatalf("disk mutated early: %q", disk.Cells[0].SourceString())
 	}
 
-	got, err := loadCurrentNotebook(context.Background(), st, reg, "n.ipynb")
+	got, err := loadCurrentNotebook(t.Context(), st, reg, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,8 +87,8 @@ func TestLoadCurrentNotebookMissing(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	reg := session.NewRegistry(st, dir)
-	defer reg.CloseAll(context.Background())
-	_, err := loadCurrentNotebook(context.Background(), st, reg, "missing.ipynb")
+	defer reg.CloseAll(t.Context())
+	_, err := loadCurrentNotebook(t.Context(), st, reg, "missing.ipynb")
 	if err == nil || !store.IsNotExist(err) {
 		t.Fatalf("want not-exist, got %v", err)
 	}
