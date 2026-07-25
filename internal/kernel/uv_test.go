@@ -1,7 +1,10 @@
 package kernel
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestParseUVPythonListDedupe(t *testing.T) {
@@ -30,5 +33,36 @@ func TestUVKernelName(t *testing.T) {
 		if got := uvKernelName(in); got != want {
 			t.Errorf("%s: got %q want %q", in, got, want)
 		}
+	}
+}
+
+// A hung `uv python list` must not block catalog load indefinitely.
+func TestLoadUVSyntheticsTimesOut(t *testing.T) {
+	dir := t.TempDir()
+	// Fake uv that ignores args and sleeps longer than the timeout.
+	// Use a shell that stays the process leader (no exec) so we exercise
+	// process-group kill of the sleep grandchild.
+	fake := filepath.Join(dir, "uv")
+	script := "#!/bin/sh\nsleep 60\n"
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	old := uvListTimeout
+	uvListTimeout = 200 * time.Millisecond
+	t.Cleanup(func() { uvListTimeout = old })
+
+	start := time.Now()
+	specs := loadUVSynthetics()
+	elapsed := time.Since(start)
+	if len(specs) != 0 {
+		t.Fatalf("want empty on timeout, got %d specs", len(specs))
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("loadUVSynthetics took %v; expected to return near timeout", elapsed)
+	}
+	if elapsed < 100*time.Millisecond {
+		t.Fatalf("loadUVSynthetics returned too fast (%v); fake uv should have been waited on", elapsed)
 	}
 }
