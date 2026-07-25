@@ -7,14 +7,14 @@ import (
 
 func TestInterruptNoConnection(t *testing.T) {
 	m := &Manager{}
-	if err := m.Interrupt(context.Background()); err == nil {
+	if err := m.Interrupt(t.Context()); err == nil {
 		t.Fatal("expected error when Conn is nil")
 	}
 }
 
 func TestInterruptRespectsCanceledContext(t *testing.T) {
 	m := &Manager{Conn: &Conn{}}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := m.Interrupt(ctx); err == nil {
 		t.Fatal("expected ctx error")

@@ -45,14 +45,14 @@ func TestStartKernelInfo(t *testing.T) {
 	t.Setenv("JUPYTER_PATH", root)
 	t.Setenv("JUPYTER_DATA_DIR", filepath.Join(t.TempDir(), "empty"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 	dir := t.TempDir()
 	m, err := Start(ctx, "gaderno-test", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Shutdown(context.Background())
+	defer m.Shutdown(t.Context())
 	t.Logf("kernel ready pid=%v", m.Cmd.Process.Pid)
 }
 
@@ -86,13 +86,13 @@ func TestExecutePrint(t *testing.T) {
 	t.Setenv("JUPYTER_PATH", root)
 	t.Setenv("JUPYTER_DATA_DIR", filepath.Join(t.TempDir(), "empty"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 	m, err := Start(ctx, "gaderno-test", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Shutdown(context.Background())
+	defer m.Shutdown(t.Context())
 
 	res, err := m.Execute(ctx, "print(1+1)")
 	if err != nil {
