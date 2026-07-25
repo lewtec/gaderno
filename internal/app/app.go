@@ -36,7 +36,7 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 
 	ws := workspace.New(root)
 	st := store.New(root)
-	reg := session.NewRegistry(st, root, cfg.Kernel)
+	reg := session.NewRegistry(st, root)
 	defer reg.CloseAll(context.Background())
 
 	staticFS, err := fs.Sub(web.Static, "static")
