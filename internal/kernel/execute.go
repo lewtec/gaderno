@@ -128,7 +128,9 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 			}
 		}
 		if stopCause != nil && !interrupted {
-			_ = m.Interrupt(context.Background())
+			// Parent may already be cancelled; Interrupt rejects a done ctx.
+			// WithoutCancel keeps request-scoped values while allowing control send.
+			_ = m.Interrupt(context.WithoutCancel(ctx))
 			interrupted = true
 			deadline = time.Now().Add(interruptGrace)
 		}
@@ -144,11 +146,12 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 		if remain <= 0 {
 			continue
 		}
-		// After cancel, parent ctx is done — drain with Background so we can
-		// still observe idle / execute_reply from the interrupted run.
+		// After cancel, parent ctx is done — drain with WithoutCancel so we can
+		// still observe idle / execute_reply from the interrupted run (and keep
+		// any request-scoped context values).
 		parentCtx := ctx
 		if stopCause != nil {
-			parentCtx = context.Background()
+			parentCtx = context.WithoutCancel(ctx)
 		}
 		rctx, cancel := context.WithTimeout(parentCtx, remain)
 		msg, ch, err := m.Conn.recvEither(rctx)
