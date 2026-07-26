@@ -1,7 +1,6 @@
 package session
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -14,17 +13,17 @@ func TestGetOrOpenCanonicalPath(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	nb := document.NewEmpty()
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
 	reg := NewRegistry(st, dir)
-	defer reg.CloseAll(context.Background())
+	defer reg.CloseAll(t.Context())
 
-	h1, err := reg.GetOrOpen(context.Background(), "./n.ipynb")
+	h1, err := reg.GetOrOpen(t.Context(), "./n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h2, err := reg.GetOrOpen(context.Background(), "sub/../n.ipynb")
+	h2, err := reg.GetOrOpen(t.Context(), "sub/../n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +34,7 @@ func TestGetOrOpenCanonicalPath(t *testing.T) {
 		t.Fatalf("hub path = %q, want n.ipynb", h1.Path)
 	}
 	// Third spelling also hits the same hub (map key is CleanRel).
-	h3, err := reg.GetOrOpen(context.Background(), "n.ipynb")
+	h3, err := reg.GetOrOpen(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +48,7 @@ func TestGetOrOpenRejectsEmpty(t *testing.T) {
 	st := store.New(dir)
 	reg := NewRegistry(st, dir)
 	for _, p := range []string{"", ".", ".."} {
-		if _, err := reg.GetOrOpen(context.Background(), p); err == nil {
+		if _, err := reg.GetOrOpen(t.Context(), p); err == nil {
 			t.Fatalf("GetOrOpen(%q) expected error", p)
 		}
 	}
@@ -60,11 +59,11 @@ func TestGetOrOpenRejectsEmpty(t *testing.T) {
 func TestGetOrOpenConcurrentSamePath(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
-	if err := st.Save(context.Background(), "n.ipynb", document.NewEmpty()); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
 		t.Fatal(err)
 	}
-	reg := NewRegistry(st, dir, "python3")
-	defer reg.CloseAll(context.Background())
+	reg := NewRegistry(st, dir)
+	defer reg.CloseAll(t.Context())
 
 	const n = 16
 	hubs := make([]*Hub, n)
@@ -75,7 +74,7 @@ func TestGetOrOpenConcurrentSamePath(t *testing.T) {
 		i := i
 		go func() {
 			defer wg.Done()
-			h, err := reg.GetOrOpen(context.Background(), "n.ipynb")
+			h, err := reg.GetOrOpen(t.Context(), "n.ipynb")
 			hubs[i] = h
 			errs[i] = err
 		}()
@@ -108,12 +107,12 @@ func TestGetOrOpenConcurrentDistinctPaths(t *testing.T) {
 	const n = 8
 	for i := 0; i < n; i++ {
 		name := fmt.Sprintf("n%d.ipynb", i)
-		if err := st.Save(context.Background(), name, document.NewEmpty()); err != nil {
+		if err := st.Save(t.Context(), name, document.NewEmpty()); err != nil {
 			t.Fatal(err)
 		}
 	}
-	reg := NewRegistry(st, dir, "python3")
-	defer reg.CloseAll(context.Background())
+	reg := NewRegistry(st, dir)
+	defer reg.CloseAll(t.Context())
 
 	hubs := make([]*Hub, n)
 	errs := make([]error, n)
@@ -123,7 +122,7 @@ func TestGetOrOpenConcurrentDistinctPaths(t *testing.T) {
 		i := i
 		go func() {
 			defer wg.Done()
-			h, err := reg.GetOrOpen(context.Background(), fmt.Sprintf("n%d.ipynb", i))
+			h, err := reg.GetOrOpen(t.Context(), fmt.Sprintf("n%d.ipynb", i))
 			hubs[i] = h
 			errs[i] = err
 		}()
@@ -152,7 +151,7 @@ func TestCloseAllClearsRegistry(t *testing.T) {
 	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
 		t.Fatal(err)
 	}
-	reg := NewRegistry(st, dir, "python3")
+	reg := NewRegistry(st, dir)
 	if _, err := reg.GetOrOpen(t.Context(), "n.ipynb"); err != nil {
 		t.Fatal(err)
 	}
