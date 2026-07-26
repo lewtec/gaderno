@@ -29,7 +29,7 @@ func TestWSReadLimitRejectsOversizeBinary(t *testing.T) {
 	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	reg := session.NewRegistry(st, dir, "")
+	reg := session.NewRegistry(st, dir)
 	defer reg.CloseAll(t.Context())
 
 	mux := http.NewServeMux()

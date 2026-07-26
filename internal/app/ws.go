@@ -55,6 +55,9 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 		}
 		// Bound assembled message size before any CRDT/control handling.
 		conn.SetReadLimit(MaxWSMessageBytes)
+		// Request context cancels when the client disconnects; async kernel
+		// ops (exec/complete/inspect) must inherit it so work stops on close.
+		reqCtx := r.Context()
 		clientID := uuid.NewString()
 		client := hub.AddClient(clientID)
 		defer hub.RemoveClient(clientID)
@@ -138,14 +141,14 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 					hub.BroadcastJSON(data, clientID)
 					continue
 				}
-				handleControl(hub, client, clientID, ctrl, logger)
+				handleControl(reqCtx, hub, client, clientID, ctrl, logger)
 			}
 		}
 		<-done
 	})
 }
 
-func handleControl(hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
+func handleControl(reqCtx context.Context, hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
 	switch ctrl.Type {
 	case "ping":
 		b, _ := json.Marshal(map[string]string{"type": "pong"})
@@ -243,7 +246,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 			if ctrl.CellID != "" && ctrl.Source != "" {
 				_ = hub.SetCellSource(ctrl.CellID, ctrl.Source, clientID)
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			ctx, cancel := context.WithTimeout(reqCtx, 3*time.Minute)
 			defer cancel()
 			if err := hub.EnsureKernel(ctx, ""); err != nil {
 				if err.Error() == "no kernel selected" {
@@ -310,7 +313,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				pos = len(code)
 			}
 			reqID := ctrl.ReqID
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			ctx, cancel := context.WithTimeout(reqCtx, 6*time.Second)
 			defer cancel()
 			res, err := hub.Complete(ctx, code, pos)
 			if err != nil {
@@ -360,7 +363,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				detail = *ctrl.DetailLevel
 			}
 			reqID := ctrl.ReqID
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			ctx, cancel := context.WithTimeout(reqCtx, 6*time.Second)
 			defer cancel()
 			res, err := hub.Inspect(ctx, code, pos, detail)
 			if err != nil {
