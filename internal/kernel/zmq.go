@@ -45,7 +45,9 @@ func Dial(ctx context.Context, cf ConnectionFile, session string) (*Conn, error)
 		iopubCh: make(chan Message, 256),
 	}
 	opts := dialOpts()
-	rctx, cancel := context.WithCancel(context.Background())
+	// Own cancel for Close; WithoutCancel so dial timeout/cancel does not kill
+	// reader loops after a successful dial (and preserves ctx values).
+	rctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	c.cancel = cancel
 
 	c.iopub = zmq4.NewSub(ctx, opts...)
