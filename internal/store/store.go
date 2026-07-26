@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/lucasew/gaderno/internal/document"
+	"io/fs"
 )
 
 // Store loads and saves notebooks as .ipynb under a jail root.
@@ -156,7 +157,7 @@ func (s *Store) CreateNew(ctx context.Context, rel string, nb *document.Notebook
 	// Atomic claim: empty exclusive create, then Save fills content under flock.
 	f, err := os.OpenFile(abs, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
-		if os.IsExist(err) {
+		if errors.Is(err, fs.ErrExist) {
 			return os.ErrExist
 		}
 		return err
@@ -199,7 +200,7 @@ func (s *Store) resolve(rel string) (string, error) {
 			return "", fmt.Errorf("path escapes root")
 		}
 		return resolved, nil
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return "", err
 	}
 
@@ -280,7 +281,7 @@ func resolveExistingDir(root, dir string) (string, error) {
 				return "", fmt.Errorf("path escapes root")
 			}
 			return out, nil
-		} else if !os.IsNotExist(err) {
+		} else if !errors.Is(err, fs.ErrNotExist) {
 			return "", err
 		}
 		missing = append(missing, filepath.Base(cur))
@@ -294,5 +295,5 @@ func resolveExistingDir(root, dir string) (string, error) {
 
 // IsNotExist reports whether err is a missing file.
 func IsNotExist(err error) bool {
-	return errors.Is(err, os.ErrNotExist) || os.IsNotExist(err)
+	return errors.Is(err, os.ErrNotExist) || errors.Is(err, fs.ErrNotExist)
 }

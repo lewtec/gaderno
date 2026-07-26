@@ -149,23 +149,23 @@ func TestGetOrOpenConcurrentDistinctPaths(t *testing.T) {
 func TestCloseAllClearsRegistry(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
-	if err := st.Save(context.Background(), "n.ipynb", document.NewEmpty()); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
 		t.Fatal(err)
 	}
 	reg := NewRegistry(st, dir, "python3")
-	if _, err := reg.GetOrOpen(context.Background(), "n.ipynb"); err != nil {
+	if _, err := reg.GetOrOpen(t.Context(), "n.ipynb"); err != nil {
 		t.Fatal(err)
 	}
-	reg.CloseAll(context.Background())
-	reg.CloseAll(context.Background()) // idempotent
+	reg.CloseAll(t.Context())
+	reg.CloseAll(t.Context()) // idempotent
 
 	// Re-open after CloseAll creates a new hub (map was cleared).
-	h, err := reg.GetOrOpen(context.Background(), "n.ipynb")
+	h, err := reg.GetOrOpen(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if h == nil {
 		t.Fatal("expected hub after re-open")
 	}
-	reg.CloseAll(context.Background())
+	reg.CloseAll(t.Context())
 }

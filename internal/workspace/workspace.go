@@ -8,6 +8,8 @@ import (
 
 	"github.com/lucasew/gaderno/internal/document"
 	"github.com/lucasew/gaderno/internal/store"
+	"errors"
+	"io/fs"
 )
 
 // Workspace lists and creates notebooks under a rooted directory.
@@ -51,7 +53,7 @@ func (w *Workspace) Create(name string) (string, error) {
 	}
 	nb := document.NewEmpty()
 	if err := w.st.CreateNew(nil, name, nb); err != nil {
-		if os.IsExist(err) {
+		if errors.Is(err, fs.ErrExist) {
 			return "", fmt.Errorf("already exists: %s", name)
 		}
 		return "", err

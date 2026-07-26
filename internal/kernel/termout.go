@@ -103,10 +103,7 @@ func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo
 	}
-	if v > hi {
-		return hi
-	}
-	return v
+	return min(v, hi)
 }
 
 func (t *TermFilter) clampCursor() {
@@ -335,10 +332,7 @@ func csiNum(p string, def int) int {
 	if n < 0 {
 		return def
 	}
-	if n > termMaxCSIParam {
-		return termMaxCSIParam
-	}
-	return n
+	return min(n, termMaxCSIParam)
 }
 
 func consumeOSC(s string, i int) int {

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/lucasew/gaderno/internal/document"
+	"errors"
+	"io/fs"
 )
 
 func TestSaveLoad(t *testing.T) {
@@ -108,7 +110,7 @@ func TestCreateNewExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := st.CreateNew(nil, "x.ipynb", nb)
-	if !os.IsExist(err) {
+	if !errors.Is(err, fs.ErrExist) {
 		t.Fatalf("want exist, got %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "x.ipynb")); err != nil {
@@ -142,7 +144,7 @@ func TestCreateNewOExcl(t *testing.T) {
 	}
 	// Concurrent-style second claim must fail even without a racy Stat window.
 	err := st.CreateNew(nil, "only.ipynb", nb)
-	if !os.IsExist(err) {
+	if !errors.Is(err, fs.ErrExist) {
 		t.Fatalf("want exist, got %v", err)
 	}
 }

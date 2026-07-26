@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"errors"
+	"io/fs"
 )
 
 // Spec is a Jupyter kernelspec (kernel.json + directory).
@@ -33,7 +35,7 @@ func Discover() ([]Spec, error) {
 	for _, dir := range searchPaths() {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
 			// skip unreadable dirs

@@ -15,14 +15,14 @@ func TestOpenSave(t *testing.T) {
 	nb := document.NewEmpty()
 	nb.Cells[0].Source = document.NewMultiline("x = 1")
 	// no resolvable kernelspec → NeedsKernel
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Close(context.Background())
+	defer h.Close(t.Context())
 	if h.SessionID == "" {
 		t.Fatal("expected non-empty SessionID")
 	}
@@ -37,10 +37,10 @@ func TestOpenSave(t *testing.T) {
 	if err := h.Doc.SetSourceServer(ids[0], "x = 2"); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.Save(context.Background()); err != nil {
+	if err := h.Save(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := st.Load(context.Background(), "n.ipynb")
+	got, err := st.Load(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,19 +69,19 @@ func TestSessionIDDistinctPerOpen(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	nb := document.NewEmpty()
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	h1, err := Open(context.Background(), st, dir, "n.ipynb")
+	h1, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h1.Close(context.Background())
-	h2, err := Open(context.Background(), st, dir, "n.ipynb")
+	defer h1.Close(t.Context())
+	h2, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h2.Close(context.Background())
+	defer h2.Close(t.Context())
 	if h1.SessionID == "" || h2.SessionID == "" {
 		t.Fatal("empty session id")
 	}
@@ -130,14 +130,14 @@ func TestExecuteCellRecordsOutputsInCRDT(t *testing.T) {
 	st := store.New(dir)
 	nb := document.NewEmpty()
 	nb.Cells[0].Source = document.NewMultiline("print(1)")
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Close(context.Background())
+	defer h.Close(t.Context())
 	id := h.Doc.CellIDs()[0]
 
 	if err := h.Doc.ClearCellOutputs(id); err != nil {
@@ -147,10 +147,10 @@ func TestExecuteCellRecordsOutputsInCRDT(t *testing.T) {
 	if err := h.Doc.ApplyCellExecution(id, outputsFromExecute(res, nil), execCountPtr(res), cellStatusFromExecute(res)); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.Save(context.Background()); err != nil {
+	if err := h.Save(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := st.Load(context.Background(), "n.ipynb")
+	got, err := st.Load(t.Context(), "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,14 +195,14 @@ func TestClientNotReadyBlocksSync(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	nb := document.NewEmpty()
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
-	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Close(context.Background())
+	defer h.Close(t.Context())
 	c := h.AddClient("c1")
 	if c.Ready {
 		t.Fatal("new client should not be ready")

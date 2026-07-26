@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -27,11 +26,11 @@ func TestWSReadLimitRejectsOversizeBinary(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	nb := document.NewEmpty()
-	if err := st.Save(context.Background(), "n.ipynb", nb); err != nil {
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
 		t.Fatal(err)
 	}
 	reg := session.NewRegistry(st, dir, "")
-	defer reg.CloseAll(context.Background())
+	defer reg.CloseAll(t.Context())
 
 	mux := http.NewServeMux()
 	registerWS(mux, reg, slog.Default())
