@@ -37,7 +37,13 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	ws := workspace.New(root)
 	st := store.New(root)
 	reg := session.NewRegistry(st, root)
-	defer reg.CloseAll(context.Background())
+	// ctx may already be cancelled on signal exit; WithoutCancel keeps values
+	// while the timeout still bounds hub/kernel teardown.
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer cancel()
+		reg.CloseAll(shutdownCtx)
+	}()
 
 	staticFS, err := fs.Sub(web.Static, "static")
 	if err != nil {
@@ -96,10 +102,11 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		// Parent is cancelled; strip cancel so Shutdown can finish within the bound.
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
-		reg.CloseAll(shutdownCtx)
+		// CloseAll runs via defer with the same timeout pattern.
 		return nil
 	case err := <-errCh:
 		if err == http.ErrServerClosed {
