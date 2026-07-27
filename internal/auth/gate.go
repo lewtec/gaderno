@@ -226,8 +226,8 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusUnauthorized)
 			if _, err := w.Write([]byte(authPageHTML)); err != nil {
-			return
-		}
+				return
+			}
 			return
 		}
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -240,8 +240,8 @@ func (g *Gate) RegisterTicketRoute(mux *http.ServeMux) {
 		if !g.Enabled() {
 			w.Header().Set("Content-Type", "application/json")
 			if _, err := w.Write([]byte(`{"ticket":""}` + "\n")); err != nil {
-			return
-		}
+				return
+			}
 			return
 		}
 		// Middleware already authorized; re-check for defense in depth.

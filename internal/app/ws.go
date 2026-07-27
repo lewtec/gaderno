@@ -158,7 +158,6 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 	})
 }
 
-
 func handleControl(ctx context.Context, hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
 	// Detach from the HTTP request cancel so long work survives brief WS flaps.
 	ctx = context.WithoutCancel(ctx)
