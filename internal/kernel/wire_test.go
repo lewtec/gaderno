@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -35,8 +36,30 @@ func TestWireBadHMAC(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = DecodeWire([]byte("other"), frames)
-	if err == nil {
-		t.Fatal("expected hmac error")
+	if !errors.Is(err, ErrInvalidHMAC) {
+		t.Fatalf("DecodeWire bad key: got %v, want ErrInvalidHMAC", err)
+	}
+}
+
+func TestWireMissingDelimiter(t *testing.T) {
+	_, err := DecodeWire([]byte("k"), [][]byte{[]byte("no-delimiter"), []byte("x")})
+	if !errors.Is(err, ErrMissingDelimiter) {
+		t.Fatalf("DecodeWire missing delimiter: got %v, want ErrMissingDelimiter", err)
+	}
+}
+
+func TestWireTruncatedMessage(t *testing.T) {
+	// Delimiter present but fewer than 5 frames after it.
+	frames := [][]byte{[]byte("<IDS|MSG>"), []byte("sig"), []byte("{}")}
+	_, err := DecodeWire([]byte("k"), frames)
+	if !errors.Is(err, ErrTruncatedMessage) {
+		t.Fatalf("DecodeWire truncated: got %v, want ErrTruncatedMessage", err)
+	}
+	if err == nil || err.Error() == "" {
+		t.Fatal("expected frame count in message")
+	}
+	if want := "truncated message: 2 frames after delimiter"; err.Error() != want {
+		t.Fatalf("message: got %q, want %q", err.Error(), want)
 	}
 }
 
@@ -63,8 +86,8 @@ func TestWireWrongLengthHMACNoPanic(t *testing.T) {
 				}
 			}()
 			_, err := DecodeWire(key, broken)
-			if err == nil {
-				t.Fatalf("expected hmac error for sig len=%d", len(bad))
+			if !errors.Is(err, ErrInvalidHMAC) {
+				t.Fatalf("DecodeWire sig len=%d: got %v, want ErrInvalidHMAC", len(bad), err)
 			}
 		}()
 	}
