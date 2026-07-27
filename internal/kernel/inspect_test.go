@@ -1,10 +1,19 @@
 package kernel
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
+
+func TestInspectNilConnection(t *testing.T) {
+	m := &Manager{}
+	_, err := m.Inspect(t.Context(), "print", 0, 0)
+	if !errors.Is(err, ErrNoConnection) {
+		t.Fatalf("errors.Is(ErrNoConnection)=false: %v", err)
+	}
+}
 
 func TestParseInspectReply(t *testing.T) {
 	res := parseInspectReply(map[string]any{
