@@ -2,7 +2,7 @@ package kernel
 
 import (
 	"context"
-	"time"
+	"errors"
 	"unicode/utf8"
 )
 
@@ -34,12 +34,6 @@ func (m *Manager) Complete(ctx context.Context, code string, cursorPos int) (Com
 	}
 	code, cursorPos = clampCompleteCode(code, cursorPos)
 
-	// Do not block execute; autocomplete is best-effort.
-	if !m.shellMu.TryLock() {
-		return CompleteResult{Status: "busy", CursorStart: cursorPos, CursorEnd: cursorPos}, nil
-	}
-	defer m.shellMu.Unlock()
-
 	req := Message{
 		Header: NewHeader(m.Session, "complete_request"),
 		Content: map[string]any{
@@ -47,48 +41,15 @@ func (m *Manager) Complete(ctx context.Context, code string, cursorPos int) (Com
 			"cursor_pos": cursorPos,
 		},
 	}
-	msgID := req.Header.MsgID
-	if err := m.Conn.SendShell(req); err != nil {
+	// Do not block execute; autocomplete is best-effort.
+	msg, err := m.shellRequest(ctx, req, "complete_reply", ErrCompleteTimeout)
+	if errors.Is(err, errShellBusy) {
+		return CompleteResult{Status: "busy", CursorStart: cursorPos, CursorEnd: cursorPos}, nil
+	}
+	if err != nil {
 		return CompleteResult{}, err
 	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-		deadline = d
-	}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return CompleteResult{}, err
-		}
-		remain := time.Until(deadline)
-		if remain <= 0 {
-			return CompleteResult{}, ErrCompleteTimeout
-		}
-		rctx, cancel := context.WithTimeout(ctx, remain)
-		msg, ch, err := m.Conn.recvEither(rctx)
-		cancel()
-		if err != nil {
-			if ctx.Err() != nil {
-				return CompleteResult{}, ctx.Err()
-			}
-			if time.Now().After(deadline) {
-				return CompleteResult{}, ErrCompleteTimeout
-			}
-			continue
-		}
-		// Ignore IOPub noise; only shell complete_reply for our parent id.
-		if ch != "shell" {
-			continue
-		}
-		if msg.Header.MsgType != "complete_reply" {
-			continue
-		}
-		if msg.ParentHeader.MsgID != msgID {
-			continue
-		}
-		return parseCompleteReply(msg.Content, cursorPos), nil
-	}
+	return parseCompleteReply(msg.Content, cursorPos), nil
 }
 
 func clampCompleteCode(code string, cursorPos int) (string, int) {
