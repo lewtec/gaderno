@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -40,8 +41,15 @@ func TestCheckBind(t *testing.T) {
 	if err := CheckBind("0.0.0.0:8080", "", true); err != nil {
 		t.Fatalf("i-understand: %v", err)
 	}
-	if err := CheckBind("0.0.0.0:8080", "", false); err == nil {
+	err := CheckBind("0.0.0.0:8080", "", false)
+	if err == nil {
 		t.Fatal("expected refuse without token")
+	}
+	if !errors.Is(err, ErrUnsafeBind) {
+		t.Fatalf("errors.Is(ErrUnsafeBind)=false: %v", err)
+	}
+	if !strings.Contains(err.Error(), "0.0.0.0:8080") {
+		t.Fatalf("error should name listen addr: %v", err)
 	}
 }
 

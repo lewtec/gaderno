@@ -1,10 +1,15 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 )
+
+// ErrUnsafeBind is returned by CheckBind when listen is non-loopback and no
+// shared token or --i-understand override is set.
+var ErrUnsafeBind = errors.New("refusing non-loopback listen without --token (kernel RCE as this OS user); set GADERNO_TOKEN/--token or pass --i-understand")
 
 // IsLoopbackListen reports whether addr is a loopback-only listen address.
 // Empty host, 0.0.0.0, and :: bind all interfaces and are not loopback.
@@ -40,8 +45,5 @@ func CheckBind(listen, token string, iUnderstand bool) error {
 	if iUnderstand {
 		return nil
 	}
-	return fmt.Errorf(
-		"refusing non-loopback listen %q without --token (kernel RCE as this OS user); set GADERNO_TOKEN/--token or pass --i-understand",
-		listen,
-	)
+	return fmt.Errorf("%w: listen %q", ErrUnsafeBind, listen)
 }
