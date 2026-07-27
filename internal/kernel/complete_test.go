@@ -1,10 +1,19 @@
 package kernel
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
+
+func TestCompleteNoConnection(t *testing.T) {
+	m := &Manager{}
+	_, err := m.Complete(t.Context(), "import os", 0)
+	if !errors.Is(err, ErrNoConnection) {
+		t.Fatalf("errors.Is(ErrNoConnection)=false: %v", err)
+	}
+}
 
 func TestParseCompleteReply(t *testing.T) {
 	res := parseCompleteReply(map[string]any{
