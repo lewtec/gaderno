@@ -2,12 +2,12 @@ package kernel
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"errors"
-	"io/fs"
 )
 
 // Spec is a Jupyter kernelspec (kernel.json + directory).

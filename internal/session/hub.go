@@ -622,7 +622,6 @@ func (h *Hub) BroadcastJSON(data []byte, skipClientID string) {
 	h.broadcast(data, false, skipClientID)
 }
 
-
 func (h *Hub) broadcastKernelStatus(st KernelStatus) {
 	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
 		"type":   "kernel.status",

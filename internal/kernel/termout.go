@@ -349,5 +349,3 @@ func consumeStringTerm(s string, i int) int {
 	}
 	return len(s)
 }
-
-
