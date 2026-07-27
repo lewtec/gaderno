@@ -2,8 +2,15 @@ package kernel
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
+)
+
+// Sentinel errors for Inspect (and shared no-connection for Manager methods).
+// Callers can use errors.Is; messages are stable.
+var (
+	ErrNoConnection   = errors.New("no connection")
+	ErrInspectTimeout = errors.New("inspect timeout")
 )
 
 // InspectResult is the Jupyter inspect_reply payload we surface to the UI.
@@ -28,7 +35,7 @@ const MaxInspectBytes = 256 << 10 // 256 KiB
 // Best-effort: returns Found=false when shell is busy with execute.
 func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLevel int) (InspectResult, error) {
 	if m.Conn == nil {
-		return InspectResult{}, fmt.Errorf("no connection")
+		return InspectResult{}, ErrNoConnection
 	}
 	// Reuse complete code window so huge cells do not inflate shell traffic.
 	code, cursorPos = clampCompleteCode(code, cursorPos)
@@ -68,7 +75,7 @@ func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLev
 		}
 		remain := time.Until(deadline)
 		if remain <= 0 {
-			return InspectResult{}, fmt.Errorf("inspect timeout")
+			return InspectResult{}, ErrInspectTimeout
 		}
 		rctx, cancel := context.WithTimeout(ctx, remain)
 		msg, ch, err := m.Conn.recvEither(rctx)
@@ -78,7 +85,7 @@ func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLev
 				return InspectResult{}, ctx.Err()
 			}
 			if time.Now().After(deadline) {
-				return InspectResult{}, fmt.Errorf("inspect timeout")
+				return InspectResult{}, ErrInspectTimeout
 			}
 			continue
 		}
