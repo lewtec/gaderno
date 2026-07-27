@@ -1,6 +1,7 @@
 package document
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -112,6 +113,25 @@ func TestEncodeCodeCellRequiredFields(t *testing.T) {
 	}
 	if !strings.Contains(s, `"execution_count"`) {
 		t.Fatalf("nil execution_count omitted:\n%s", s)
+	}
+}
+
+func TestDecodeUnsupportedNBFormat(t *testing.T) {
+	raw := []byte(`{
+  "nbformat": 3,
+  "nbformat_minor": 0,
+  "metadata": {},
+  "cells": []
+}`)
+	_, err := Decode(raw)
+	if err == nil {
+		t.Fatal("expected error for nbformat 3")
+	}
+	if !errors.Is(err, ErrUnsupportedNBFormat) {
+		t.Fatalf("errors.Is(ErrUnsupportedNBFormat): got %v", err)
+	}
+	if !strings.Contains(err.Error(), "3") {
+		t.Fatalf("error should include version: %v", err)
 	}
 }
 

@@ -5,8 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+)
+
+// Sentinel validation errors (errors.Is).
+var (
+	ErrUnsupportedNBFormat = errors.New("unsupported nbformat")
 )
 
 // Notebook is nbformat v4.
@@ -142,7 +148,7 @@ func Decode(raw []byte) (*Notebook, error) {
 		return nil, fmt.Errorf("decode notebook: %w", err)
 	}
 	if nb.NBFormat != 4 {
-		return nil, fmt.Errorf("unsupported nbformat %d", nb.NBFormat)
+		return nil, fmt.Errorf("%w: %d", ErrUnsupportedNBFormat, nb.NBFormat)
 	}
 	if nb.Metadata == nil {
 		nb.Metadata = map[string]any{}
