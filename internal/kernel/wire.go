@@ -5,10 +5,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+// Sentinel errors for DecodeWire (errors.Is).
+var (
+	// ErrMissingDelimiter is returned when frames lack the Jupyter <IDS|MSG> marker.
+	ErrMissingDelimiter = errors.New("missing <IDS|MSG> delimiter")
+	// ErrTruncatedMessage is returned when too few frames follow the delimiter.
+	ErrTruncatedMessage = errors.New("truncated message")
+	// ErrInvalidHMAC is returned when the message signature does not match.
+	ErrInvalidHMAC = errors.New("invalid HMAC signature")
 )
 
 // Message is a Jupyter wire message (protocol 5.x).
@@ -94,18 +105,18 @@ func DecodeWire(key []byte, frames [][]byte) (Message, error) {
 		i++
 	}
 	if i >= len(frames) {
-		return Message{}, fmt.Errorf("missing <IDS|MSG> delimiter")
+		return Message{}, ErrMissingDelimiter
 	}
 	rest := frames[i+1:]
 	if len(rest) < 5 {
-		return Message{}, fmt.Errorf("truncated message: %d frames after delimiter", len(rest))
+		return Message{}, fmt.Errorf("%w: %d frames after delimiter", ErrTruncatedMessage, len(rest))
 	}
 	sig, header, parent, meta, content := rest[0], rest[1], rest[2], rest[3], rest[4]
 	expect := sign(key, header, parent, meta, content)
 	// hmac.Equal → subtle.ConstantTimeCompare panics when lengths differ.
 	// Malformed or hostile signature frames must not kill the ZMQ readLoop.
 	if len(key) > 0 && !hmacEqualSafe(sig, []byte(expect)) {
-		return Message{}, fmt.Errorf("invalid HMAC signature")
+		return Message{}, ErrInvalidHMAC
 	}
 	var msg Message
 	if err := json.Unmarshal(header, &msg.Header); err != nil {
