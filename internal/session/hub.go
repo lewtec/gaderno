@@ -2,7 +2,6 @@ package session
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lucasew/gaderno/internal/crdt"
 	"github.com/lucasew/gaderno/internal/document"
+	"github.com/lucasew/gaderno/internal/jsonutil"
 	"github.com/lucasew/gaderno/internal/kernel"
 	"github.com/lucasew/gaderno/internal/store"
 	ycrdt "github.com/reearth/ygo/crdt"
@@ -380,7 +380,7 @@ func (h *Hub) SetCellType(cellID, cellType string) error {
 
 func (h *Hub) broadcastStructure() {
 	cells := h.Doc.SnapshotCells()
-	h.BroadcastJSON(marshalHub(map[string]any{
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
 		"type":  "notebook.structure",
 		"cells": cells,
 	}), "")
@@ -393,7 +393,7 @@ func (h *Hub) SetCellSource(cellID, source string, skipClient string) error {
 	if err := h.Doc.SetSourceServer(cellID, source); err != nil {
 		return err
 	}
-	h.BroadcastJSON(marshalHub(map[string]any{
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
 		"type":    "cell.source",
 		"cell_id": cellID,
 		"source":  source,
@@ -448,7 +448,7 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	if err := h.Doc.ClearCellOutputs(cellID); err != nil {
 		// best-effort
 	}
-	h.BroadcastJSON(marshalHub(map[string]any{
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
 		"type":    "exec.clear",
 		"cell_id": cellID,
 	}), "")
@@ -625,16 +625,9 @@ func (h *Hub) BroadcastJSON(data []byte, skipClientID string) {
 	h.broadcast(data, false, skipClientID)
 }
 
-func marshalHub(v any) []byte {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return []byte(`{"type":"error","text":"marshal failed"}`)
-	}
-	return b
-}
 
 func (h *Hub) broadcastKernelStatus(st KernelStatus) {
-	h.BroadcastJSON(marshalHub(map[string]any{
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
 		"type":   "kernel.status",
 		"status": st,
 	}), "")
@@ -644,7 +637,7 @@ func (h *Hub) broadcastKernelStatus(st KernelStatus) {
 func (h *Hub) SendKernelStatus(c *Client) {
 	st := h.Status()
 	select {
-	case c.Out <- Outbound{Data: marshalHub(map[string]any{
+	case c.Out <- Outbound{Data: jsonutil.Bytes(map[string]any{
 		"type":   "kernel.status",
 		"status": st,
 	})}:

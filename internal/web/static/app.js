@@ -67,6 +67,12 @@ import { createCollabSession } from "./editor.js";
     setStatus(withKernel("Live"), state || "ok");
   }
 
+  function scheduleLiveStatus(ms) {
+    setTimeout(function () {
+      if (sessionReady) setLiveStatus("ok");
+    }, ms);
+  }
+
   function sendWhenOpen(payload) {
     if (!ws || ws.readyState !== 1) return false;
     ws.send(payload);
@@ -1159,10 +1165,7 @@ import { createCollabSession } from "./editor.js";
             r.ok ? withKernel("Saved") : "Save failed",
             r.ok ? "ok" : "err"
           );
-          if (r.ok)
-            setTimeout(function () {
-              if (sessionReady) setLiveStatus("ok");
-            }, 900);
+          if (r.ok) scheduleLiveStatus(900);
         })
         .catch(function () {
           setStatus("Save failed", "err");
@@ -1201,9 +1204,7 @@ import { createCollabSession } from "./editor.js";
           applyKernelStatus(st);
           if (kernelDialog) kernelDialog.close();
           setStatus(withKernel("Kernel ready"), "ok");
-          setTimeout(function () {
-            if (sessionReady) setLiveStatus("ok");
-          }, 600);
+          scheduleLiveStatus(600);
         })
         .catch(function (err) {
           setStatus(String(err.message || err), "err");

@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+func writeBody(w http.ResponseWriter, body string) {
+	if _, err := w.Write([]byte(body)); err != nil {
+		return
+	}
+}
+
 func TestIsLoopbackListen(t *testing.T) {
 	cases := []struct {
 		addr string
@@ -50,9 +56,7 @@ func TestGateDisabled(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /secret", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte("ok")); err != nil {
-			return
-		}
+		writeBody(w, "ok")
 	})
 	srv := g.Middleware(mux)
 	rr := httptest.NewRecorder()
@@ -66,9 +70,7 @@ func TestGateBearerAndCookie(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("ok")); err != nil {
-			return
-		}
+		writeBody(w, "ok")
 	})
 	h := g.Middleware(mux)
 
@@ -125,9 +127,7 @@ func TestGatePublicHealthz(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("ok\n")); err != nil {
-			return
-		}
+		writeBody(w, "ok\n")
 	})
 	h := g.Middleware(mux)
 	rr := httptest.NewRecorder()
@@ -155,9 +155,7 @@ func TestTicketOnWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("upgraded")); err != nil {
-			return
-		}
+		writeBody(w, "upgraded")
 	})
 	g.RegisterTicketRoute(mux)
 	h := g.Middleware(mux)
@@ -196,14 +194,10 @@ func TestTicketRejectedOnNonWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("ok")); err != nil {
-			return
-		}
+		writeBody(w, "ok")
 	})
 	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("upgraded")); err != nil {
-			return
-		}
+		writeBody(w, "upgraded")
 	})
 	h := g.Middleware(mux)
 
@@ -231,9 +225,7 @@ func TestHTMLAuthPage(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte("home")); err != nil {
-			return
-		}
+		writeBody(w, "home")
 	})
 	h := g.Middleware(mux)
 	rr := httptest.NewRecorder()

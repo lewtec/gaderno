@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/lucasew/gaderno/internal/jsonutil"
 	"github.com/lucasew/gaderno/internal/kernel"
 	"github.com/lucasew/gaderno/internal/session"
 )
@@ -157,14 +158,6 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 	})
 }
 
-// marshalWS encodes v as JSON; on failure returns a minimal error envelope.
-func marshalWS(v any) []byte {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return []byte(`{"type":"error","text":"marshal failed"}`)
-	}
-	return b
-}
 
 func handleControl(ctx context.Context, hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
 	// Detach from the HTTP request cancel so long work survives brief WS flaps.
@@ -172,11 +165,11 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 	switch ctrl.Type {
 	case "ping":
 		select {
-		case client.Out <- session.Outbound{Data: marshalWS(map[string]string{"type": "pong"})}:
+		case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]string{"type": "pong"})}:
 		default:
 		}
 	case "chat.send":
-		hub.BroadcastJSON(marshalWS(map[string]string{
+		hub.BroadcastJSON(jsonutil.Bytes(map[string]string{
 			"type": "chat.message",
 			"text": ctrl.Text,
 			"from": client.ID[:8],
@@ -192,7 +185,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			return
 		}
 		select {
-		case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
+		case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
 			"type":    "cell.source_ack",
 			"cell_id": ctrl.CellID,
 		})}:
@@ -217,7 +210,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 		}
 		// structure broadcast already sent; include focus hint to originator
 		select {
-		case client.Out <- session.Outbound{Data: marshalWS(map[string]any{"type": "cell.inserted", "cell_id": id, "index": idx})}:
+		case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{"type": "cell.inserted", "cell_id": id, "index": idx})}:
 		default:
 		}
 	case "cell.delete":
@@ -269,7 +262,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			if err := hub.EnsureKernel(ctx, ""); err != nil {
 				if errors.Is(err, session.ErrNoKernelSelected) {
 					select {
-					case client.Out <- session.Outbound{Data: marshalWS(map[string]any{"type": "kernel.needs_pick"})}:
+					case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{"type": "kernel.needs_pick"})}:
 					default:
 					}
 				}
@@ -278,7 +271,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			}
 			res, err := hub.ExecuteCell(ctx, ctrl.CellID,
 				func(ch kernel.StreamChunk) {
-					hub.BroadcastJSON(marshalWS(map[string]any{
+					hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
 						"type":    "exec.stream",
 						"cell_id": ctrl.CellID,
 						"name":    ch.Name,
@@ -287,7 +280,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				},
 				func(dd kernel.DisplayData) {
 					// Full mime bundle — client chooses renderers.
-					hub.BroadcastJSON(marshalWS(map[string]any{
+					hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
 						"type":        "exec.display",
 						"cell_id":     ctrl.CellID,
 						"output_type": dd.OutputType,
@@ -301,7 +294,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				sendErr(client, err.Error())
 				return
 			}
-			hub.BroadcastJSON(marshalWS(map[string]any{
+			hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
 				"type":            "exec.result",
 				"cell_id":         ctrl.CellID,
 				"status":          res.Status,
@@ -332,7 +325,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			res, err := hub.Complete(ctx, code, pos)
 			if err != nil {
 				select {
-				case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
+				case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
 					"type":         "complete.reply",
 					"req_id":       reqID,
 					"status":       "error",
@@ -346,7 +339,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				return
 			}
 			select {
-			case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
+			case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
 				"type":         "complete.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
@@ -380,7 +373,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			res, err := hub.Inspect(ctx, code, pos, detail)
 			if err != nil {
 				select {
-				case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
+				case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
 					"type":         "inspect.reply",
 					"req_id":       reqID,
 					"status":       "error",
@@ -393,7 +386,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				return
 			}
 			select {
-			case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
+			case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
 				"type":         "inspect.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
@@ -410,7 +403,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 
 func sendErr(client *session.Client, msg string) {
 	select {
-	case client.Out <- session.Outbound{Data: marshalWS(map[string]string{"type": "error", "text": msg})}:
+	case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]string{"type": "error", "text": msg})}:
 	default:
 	}
 }

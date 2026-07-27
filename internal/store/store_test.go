@@ -12,21 +12,26 @@ import (
 	"github.com/lucasew/gaderno/internal/document"
 )
 
-func TestSaveLoad(t *testing.T) {
+func saveLoadRoundTrip(t *testing.T, name, source string) {
+	t.Helper()
 	dir := t.TempDir()
 	st := New(dir)
 	nb := document.NewEmpty()
-	nb.Cells[0].Source = document.NewMultiline("print(1)")
-	if err := st.Save(nil, "a.ipynb", nb); err != nil {
+	nb.Cells[0].Source = document.NewMultiline(source)
+	if err := st.Save(nil, name, nb); err != nil {
 		t.Fatal(err)
 	}
-	got, err := st.Load(nil, "a.ipynb")
+	got, err := st.Load(nil, name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Cells[0].SourceString() != "print(1)" {
+	if got.Cells[0].SourceString() != source {
 		t.Fatalf("got %q", got.Cells[0].SourceString())
 	}
+}
+
+func TestSaveLoad(t *testing.T) {
+	saveLoadRoundTrip(t, "a.ipynb", "print(1)")
 }
 
 func TestPathJail(t *testing.T) {
@@ -119,20 +124,8 @@ func TestCreateNewExists(t *testing.T) {
 }
 
 func TestSaveLoadWithFlock(t *testing.T) {
-	dir := t.TempDir()
-	st := New(dir)
-	nb := document.NewEmpty()
-	nb.Cells[0].Source = document.NewMultiline("under-lock")
-	if err := st.Save(nil, "locked.ipynb", nb); err != nil {
-		t.Fatal(err)
-	}
-	got, err := st.Load(nil, "locked.ipynb")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Cells[0].SourceString() != "under-lock" {
-		t.Fatalf("got %q", got.Cells[0].SourceString())
-	}
+	// Same path as TestSaveLoad; exercises flock best-effort on unix.
+	saveLoadRoundTrip(t, "locked.ipynb", "under-lock")
 }
 
 func TestCreateNewOExcl(t *testing.T) {
