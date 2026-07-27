@@ -19,6 +19,8 @@ var (
 	uvOnce   sync.Once
 	uvSpecs  []Spec
 	uvLoaded bool
+	// processRoot is the process-lifetime base for catalog work (not a request).
+	processRoot = context.Background()
 )
 
 // uvListTimeout bounds `uv python list` during catalog load. Catalog is built
@@ -47,7 +49,7 @@ func loadUVSynthetics() []Spec {
 	if err != nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), uvListTimeout)
+	ctx, cancel := context.WithTimeout(processRoot, uvListTimeout)
 	defer cancel()
 	// Plain Command (not CommandContext): we own the timeout so we can SIGKILL
 	// the whole process group. CommandContext only signals the leader and can
@@ -71,7 +73,9 @@ func loadUVSynthetics() []Spec {
 			return nil
 		}
 	case <-ctx.Done():
-		_ = killProcessGroup(cmd, syscall.SIGKILL)
+		if err := killProcessGroup(cmd, syscall.SIGKILL); err != nil {
+			// best-effort kill after uv list timeout
+		}
 		<-waitDone
 		return nil
 	}

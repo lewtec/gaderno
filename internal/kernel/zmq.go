@@ -52,32 +52,44 @@ func Dial(ctx context.Context, cf ConnectionFile, session string) (*Conn, error)
 
 	c.iopub = zmq4.NewSub(ctx, opts...)
 	if err := c.iopub.SetOption(zmq4.OptionSubscribe, ""); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("iopub subscribe: %w", err)
 	}
 	if err := c.iopub.Dial(cf.Endpoint(cf.IOPubPort)); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("iopub dial: %w", err)
 	}
 
 	c.shell = zmq4.NewDealer(ctx, opts...)
 	if err := c.shell.Dial(cf.Endpoint(cf.ShellPort)); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("shell dial: %w", err)
 	}
 	c.control = zmq4.NewDealer(ctx, opts...)
 	if err := c.control.Dial(cf.Endpoint(cf.ControlPort)); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("control dial: %w", err)
 	}
 	c.stdin = zmq4.NewDealer(ctx, opts...)
 	if err := c.stdin.Dial(cf.Endpoint(cf.StdinPort)); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("stdin dial: %w", err)
 	}
 	c.hb = zmq4.NewReq(ctx, opts...)
 	if err := c.hb.Dial(cf.Endpoint(cf.HBPort)); err != nil {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			// best-effort
+		}
 		return nil, fmt.Errorf("hb dial: %w", err)
 	}
 
@@ -156,7 +168,7 @@ func (c *Conn) RecvShell(ctx context.Context) (Message, error) {
 		return Message{}, ctx.Err()
 	case msg, ok := <-c.shellCh:
 		if !ok {
-			return Message{}, fmt.Errorf("shell closed")
+			return Message{}, ErrShellClosed
 		}
 		return msg, nil
 	}
@@ -169,7 +181,7 @@ func (c *Conn) RecvIOPub(ctx context.Context) (Message, error) {
 		return Message{}, ctx.Err()
 	case msg, ok := <-c.iopubCh:
 		if !ok {
-			return Message{}, fmt.Errorf("iopub closed")
+			return Message{}, ErrIOPubClosed
 		}
 		return msg, nil
 	}
@@ -199,11 +211,11 @@ func (c *Conn) send(sock zmq4.Socket, msg Message) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
-		return fmt.Errorf("connection closed")
+		return ErrConnectionClosed
 	}
 	frames, err := EncodeWire(c.CF.KeyBytes(), msg)
-	if err != nil {
-		return err
+	if err == nil {
+		err = sock.SendMulti(zmq4.NewMsgFrom(frames...))
 	}
-	return sock.SendMulti(zmq4.NewMsgFrom(frames...))
+	return err
 }

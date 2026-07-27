@@ -101,10 +101,10 @@ func jupyterDataDirs() []string {
 	if p := os.Getenv("CONDA_PREFIX"); p != "" {
 		dirs = append(dirs, filepath.Join(p, "share", "jupyter"))
 	}
-	// Python sys.prefix is often under PATH's python — try common env
-	if home, err := os.UserHomeDir(); err == nil {
-		// mise/uv local envs not enumerated; rely on VIRTUAL_ENV/CONDA
-		_ = home
+	// Python sys.prefix is often under PATH's python — try common env.
+	// mise/uv local envs are not enumerated; rely on VIRTUAL_ENV/CONDA.
+	if _, err := os.UserHomeDir(); err != nil {
+		// home optional for path discovery
 	}
 	// 4. System dirs
 	switch runtime.GOOS {

@@ -1,15 +1,21 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/lucasew/gaderno/internal/document"
 	"github.com/lucasew/gaderno/internal/store"
-	"errors"
-	"io/fs"
+)
+
+// Package-level errors for workspace create (errors.Is).
+var (
+	ErrInvalidName   = errors.New("invalid name")
+	ErrAlreadyExists = errors.New("already exists")
 )
 
 // Workspace lists and creates notebooks under a rooted directory.
@@ -46,7 +52,7 @@ func (w *Workspace) List() ([]string, error) {
 func (w *Workspace) Create(name string) (string, error) {
 	name = filepath.Base(strings.TrimSpace(name))
 	if name == "" || name == "." || name == ".." {
-		return "", fmt.Errorf("invalid name")
+		return "", ErrInvalidName
 	}
 	if !strings.HasSuffix(strings.ToLower(name), ".ipynb") {
 		name += ".ipynb"
@@ -54,7 +60,7 @@ func (w *Workspace) Create(name string) (string, error) {
 	nb := document.NewEmpty()
 	if err := w.st.CreateNew(nil, name, nb); err != nil {
 		if errors.Is(err, fs.ErrExist) {
-			return "", fmt.Errorf("already exists: %s", name)
+			return "", fmt.Errorf("%w: %s", ErrAlreadyExists, name)
 		}
 		return "", err
 	}

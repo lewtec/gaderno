@@ -50,7 +50,9 @@ func TestGateDisabled(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /secret", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			return
+		}
 	})
 	srv := g.Middleware(mux)
 	rr := httptest.NewRecorder()
@@ -64,7 +66,9 @@ func TestGateBearerAndCookie(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			return
+		}
 	})
 	h := g.Middleware(mux)
 
@@ -121,7 +125,9 @@ func TestGatePublicHealthz(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok\n"))
+		if _, err := w.Write([]byte("ok\n")); err != nil {
+			return
+		}
 	})
 	h := g.Middleware(mux)
 	rr := httptest.NewRecorder()
@@ -149,7 +155,9 @@ func TestTicketOnWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("upgraded"))
+		if _, err := w.Write([]byte("upgraded")); err != nil {
+			return
+		}
 	})
 	g.RegisterTicketRoute(mux)
 	h := g.Middleware(mux)
@@ -188,10 +196,14 @@ func TestTicketRejectedOnNonWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("ok")); err != nil {
+			return
+		}
 	})
 	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("upgraded"))
+		if _, err := w.Write([]byte("upgraded")); err != nil {
+			return
+		}
 	})
 	h := g.Middleware(mux)
 
@@ -219,7 +231,9 @@ func TestHTMLAuthPage(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("home"))
+		if _, err := w.Write([]byte("home")); err != nil {
+			return
+		}
 	})
 	h := g.Middleware(mux)
 	rr := httptest.NewRecorder()
@@ -229,7 +243,10 @@ func TestHTMLAuthPage(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("code=%d", rr.Code)
 	}
-	b, _ := io.ReadAll(rr.Body)
+	b, err := io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(string(b), "Token required") {
 		t.Fatalf("body=%s", b)
 	}

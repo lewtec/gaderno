@@ -37,7 +37,8 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	ws := workspace.New(root)
 	st := store.New(root)
 	reg := session.NewRegistry(st, root)
-	defer reg.CloseAll(context.Background())
+	// CloseAll after return even if ctx is already cancelled.
+	defer reg.CloseAll(context.WithoutCancel(ctx))
 
 	staticFS, err := fs.Sub(web.Static, "static")
 	if err != nil {
@@ -50,11 +51,15 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("ok\n"))
+		if _, err := w.Write([]byte("ok\n")); err != nil {
+			return
+		}
 	})
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = fmt.Fprintln(w, version)
+		if _, err := fmt.Fprintln(w, version); err != nil {
+			return
+		}
 	})
 	gate.RegisterTicketRoute(mux)
 	registerWorkspaceRoutes(mux, ws, logger)
@@ -96,9 +101,11 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			logger.Warn("http shutdown", "err", err)
+		}
 		reg.CloseAll(shutdownCtx)
 		return nil
 	case err := <-errCh:

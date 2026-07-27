@@ -225,7 +225,9 @@ func (g *Gate) Middleware(next http.Handler) http.Handler {
 		if wantsHTML(r) && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(authPageHTML))
+			if _, err := w.Write([]byte(authPageHTML)); err != nil {
+			return
+		}
 			return
 		}
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -237,7 +239,9 @@ func (g *Gate) RegisterTicketRoute(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/ws-ticket", func(w http.ResponseWriter, r *http.Request) {
 		if !g.Enabled() {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"ticket":""}` + "\n"))
+			if _, err := w.Write([]byte(`{"ticket":""}` + "\n")); err != nil {
+			return
+		}
 			return
 		}
 		// Middleware already authorized; re-check for defense in depth.
@@ -252,10 +256,12 @@ func (g *Gate) RegisterTicketRoute(mux *http.ServeMux) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"ticket":     id,
 			"expires_in": int(ttl.Seconds()),
-		})
+		}); err != nil {
+			return
+		}
 	})
 }
 

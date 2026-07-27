@@ -5,9 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
+
+// ErrUnsupportedNBFormat is returned when nbformat major version is not 4.
+var ErrUnsupportedNBFormat = errors.New("unsupported nbformat")
 
 // Notebook is nbformat v4.
 type Notebook struct {
@@ -142,7 +146,7 @@ func Decode(raw []byte) (*Notebook, error) {
 		return nil, fmt.Errorf("decode notebook: %w", err)
 	}
 	if nb.NBFormat != 4 {
-		return nil, fmt.Errorf("unsupported nbformat %d", nb.NBFormat)
+		return nil, fmt.Errorf("%w: %d", ErrUnsupportedNBFormat, nb.NBFormat)
 	}
 	if nb.Metadata == nil {
 		nb.Metadata = map[string]any{}
@@ -235,7 +239,9 @@ func anyString(v any) string {
 
 func newCellID() string {
 	var b [8]byte
-	_, _ = rand.Read(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		// crypto/rand failure is effectively impossible; keep zero-padded id
+	}
 	return hex.EncodeToString(b[:])
 }
 

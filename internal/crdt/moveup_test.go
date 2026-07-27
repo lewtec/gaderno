@@ -60,8 +60,13 @@ func TestMoveUpAdjacent(t *testing.T) {
 	d := New()
 	nb := document.NewEmpty()
 	nb.Cells[0].Source = document.NewMultiline("A")
-	_ = d.LoadFromNotebook(nb)
-	idB, _ := d.InsertCell(1, document.CellCode, "B")
+	if err := d.LoadFromNotebook(nb); err != nil {
+		t.Fatal(err)
+	}
+	idB, err := d.InsertCell(1, document.CellCode, "B")
+	if err != nil {
+		t.Fatal(err)
+	}
 	ids := d.CellIDs()
 	idA := ids[0]
 	// move B up to 0

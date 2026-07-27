@@ -27,8 +27,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"notebooks": list})
+		writeJSON(w, map[string]any{"notebooks": list})
 	})
 
 	mux.HandleFunc("POST /api/notebooks", func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +56,9 @@ func registerWorkspaceRoutes(mux *http.ServeMux, ws *workspace.Workspace, logger
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]string{"path": path})
+		if err := json.NewEncoder(w).Encode(map[string]string{"path": path}); err != nil {
+			return
+		}
 	})
 }
 

@@ -1,10 +1,14 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 )
+
+// ErrNonLoopbackNoToken is returned when binding a non-loopback address without a shared token.
+var ErrNonLoopbackNoToken = errors.New("refusing non-loopback listen without token")
 
 // IsLoopbackListen reports whether addr is a loopback-only listen address.
 // Empty host, 0.0.0.0, and :: bind all interfaces and are not loopback.
@@ -41,7 +45,8 @@ func CheckBind(listen, token string, iUnderstand bool) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"refusing non-loopback listen %q without --token (kernel RCE as this OS user); set GADERNO_TOKEN/--token or pass --i-understand",
+		"%w: %q without --token (kernel RCE as this OS user); set GADERNO_TOKEN/--token or pass --i-understand",
+		ErrNonLoopbackNoToken,
 		listen,
 	)
 }

@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -24,7 +23,7 @@ func ExpandArgv(argv []string, connectionFile, resourceDir string) []string {
 func StartProcess(spec Spec, connectionFile, cwd string) (*exec.Cmd, error) {
 	argv := ExpandArgv(spec.Spec.Argv, connectionFile, spec.ResourceDir)
 	if len(argv) == 0 {
-		return nil, fmt.Errorf("empty argv")
+		return nil, ErrEmptyArgv
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = cwd

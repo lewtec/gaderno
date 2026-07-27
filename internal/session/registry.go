@@ -53,7 +53,9 @@ func (r *Registry) GetOrOpen(ctx context.Context, rel string) (*Hub, error) {
 		r.mu.Unlock()
 		// Lost the race: another Open finished first. Drop our duplicate
 		// (no clients attached yet) and return the registered hub.
-		_ = h.Close(ctx)
+		if err := h.Close(ctx); err != nil {
+			// best-effort
+		}
 		return existing, nil
 	}
 	r.hubs[rel] = h
@@ -70,6 +72,8 @@ func (r *Registry) CloseAll(ctx context.Context) {
 	r.hubs = make(map[string]*Hub)
 	r.mu.Unlock()
 	for _, h := range hubs {
-		_ = h.Close(ctx)
+		if err := h.Close(ctx); err != nil {
+			// best-effort
+		}
 	}
 }

@@ -1,7 +1,6 @@
 package session
 
 import (
-	"context"
 	"testing"
 
 	"github.com/lucasew/gaderno/internal/document"
@@ -54,12 +53,14 @@ func TestBindKernelUnknown(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)
 	nb := document.NewEmpty()
-	_ = st.Save(context.Background(), "n.ipynb", nb)
-	h, err := Open(context.Background(), st, dir, "n.ipynb")
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Close(context.Background())
+	defer h.Close(t.Context())
 	if err := h.BindKernel("definitely-missing-kernel-xyz"); err == nil {
 		t.Fatal("expected error")
 	}

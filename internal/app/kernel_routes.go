@@ -16,8 +16,7 @@ func registerKernelRoutes(mux *http.ServeMux, reg *session.Registry, logger *slo
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		writeJSON(w, map[string]any{
 			"kernels": cat.Entries(),
 			"groups":  cat.Groups(),
 		})
@@ -41,8 +40,7 @@ func registerKernelRoutes(mux *http.ServeMux, reg *session.Registry, logger *slo
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(hub.Status())
+		writeJSON(w, hub.Status())
 	})
 
 	mux.HandleFunc("GET /api/kernel/status", func(w http.ResponseWriter, r *http.Request) {
@@ -56,8 +54,9 @@ func registerKernelRoutes(mux *http.ServeMux, reg *session.Registry, logger *slo
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(hub.Status())
+		writeJSON(w, hub.Status())
 	})
-	_ = logger
+	if logger != nil {
+		// reserved for future request logging on these routes
+	}
 }

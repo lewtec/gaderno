@@ -18,7 +18,10 @@ func TestDiscoverJupyterPath(t *testing.T) {
 		DisplayName: "Fake",
 		Language:    "echo",
 	}
-	raw, _ := json.Marshal(kj)
+	raw, err := json.Marshal(kj)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(kdir, "kernel.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}

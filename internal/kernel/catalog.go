@@ -121,7 +121,7 @@ func (c *Catalog) Has(name string) bool {
 func (c *Catalog) Spec(name string) (Spec, error) {
 	s, ok := c.byName[name]
 	if !ok {
-		return Spec{}, fmt.Errorf("kernelspec %q not found", name)
+		return Spec{}, fmt.Errorf("%w: %q", ErrKernelspecNotFound, name)
 	}
 	return s, nil
 }

@@ -66,7 +66,7 @@ func (m *Manager) Execute(ctx context.Context, code string) (ExecuteResult, erro
 // ExecuteOpts runs code with optional stream callbacks.
 func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts) (ExecuteResult, error) {
 	if m.Conn == nil {
-		return ExecuteResult{}, fmt.Errorf("no connection")
+		return ExecuteResult{}, ErrNoConnection
 	}
 	// Hold for the whole execute so complete_request cannot interleave on shell.
 	m.shellMu.Lock()
@@ -124,11 +124,13 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 			if err := ctx.Err(); err != nil {
 				stopCause = err
 			} else if time.Now().After(deadline) {
-				stopCause = fmt.Errorf("execute timeout")
+				stopCause = ErrExecuteTimeout
 			}
 		}
 		if stopCause != nil && !interrupted {
-			_ = m.Interrupt(context.Background())
+			if err := m.Interrupt(context.WithoutCancel(ctx)); err != nil {
+				// best-effort interrupt; continue drain/abort path
+			}
 			interrupted = true
 			deadline = time.Now().Add(interruptGrace)
 		}
@@ -144,11 +146,11 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 		if remain <= 0 {
 			continue
 		}
-		// After cancel, parent ctx is done — drain with Background so we can
+		// After cancel, parent ctx is done — drain with WithoutCancel so we can
 		// still observe idle / execute_reply from the interrupted run.
 		parentCtx := ctx
 		if stopCause != nil {
-			parentCtx = context.Background()
+			parentCtx = context.WithoutCancel(ctx)
 		}
 		rctx, cancel := context.WithTimeout(parentCtx, remain)
 		msg, ch, err := m.Conn.recvEither(rctx)
@@ -264,11 +266,8 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 					continue
 				}
 				// Keep a plain-text breadcrumb in stdout for logs / untrusted clients.
-				if tp, ok := dd.Data["text/plain"].(string); ok && tp != "" {
-					// Don't also dump figure placeholders into the stream UI if we
-					// already ship the full bundle — only for result summary.
-					_ = tp
-				}
+				// Full mime bundle is pushed via OnDisplay; do not also dump
+				// text/plain into stream UI for figure placeholders.
 				if opts.OnDisplay != nil {
 					opts.OnDisplay(dd)
 				}

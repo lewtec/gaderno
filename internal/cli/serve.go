@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -28,11 +27,21 @@ func init() {
 	serveCmd.Flags().String("kernel", "", "default kernelspec name (env GADERNO_KERNEL)")
 	serveCmd.Flags().Bool("i-understand", false, "allow non-loopback listen without a shared token (dangerous)")
 
-	_ = viper.BindPFlag("root", serveCmd.Flags().Lookup("root"))
-	_ = viper.BindPFlag("listen", serveCmd.Flags().Lookup("listen"))
-	_ = viper.BindPFlag("token", serveCmd.Flags().Lookup("token"))
-	_ = viper.BindPFlag("kernel", serveCmd.Flags().Lookup("kernel"))
-	_ = viper.BindPFlag("i-understand", serveCmd.Flags().Lookup("i-understand"))
+	if err := viper.BindPFlag("root", serveCmd.Flags().Lookup("root")); err != nil {
+		// best-effort
+	}
+	if err := viper.BindPFlag("listen", serveCmd.Flags().Lookup("listen")); err != nil {
+		// best-effort
+	}
+	if err := viper.BindPFlag("token", serveCmd.Flags().Lookup("token")); err != nil {
+		// best-effort
+	}
+	if err := viper.BindPFlag("kernel", serveCmd.Flags().Lookup("kernel")); err != nil {
+		// best-effort
+	}
+	if err := viper.BindPFlag("i-understand", serveCmd.Flags().Lookup("i-understand")); err != nil {
+		// best-effort
+	}
 
 	viper.SetDefault("root", ".")
 	viper.SetDefault("listen", "127.0.0.1:8080")
@@ -54,7 +63,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	if err := app.Run(ctx, cfg, version); err != nil {

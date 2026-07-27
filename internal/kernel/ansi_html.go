@@ -159,9 +159,15 @@ func applySGR(params string, bold, underline *bool, fg *string) {
 		case n == 38:
 			// 38;5;n or 38;2;r;g;b — map 256-color roughly; truecolor ignored → default
 			if i+1 < len(parts) {
-				mode, _ := strconv.Atoi(strings.TrimSpace(parts[i+1]))
+				mode, err := strconv.Atoi(strings.TrimSpace(parts[i+1]))
+				if err != nil {
+					break
+				}
 				if mode == 5 && i+2 < len(parts) {
-					idx, _ := strconv.Atoi(strings.TrimSpace(parts[i+2]))
+					idx, err := strconv.Atoi(strings.TrimSpace(parts[i+2]))
+					if err != nil {
+						break
+					}
 					*fg = xterm256(idx)
 					i += 2
 				} else if mode == 2 && i+4 < len(parts) {
@@ -175,7 +181,10 @@ func applySGR(params string, bold, underline *bool, fg *string) {
 		case n == 48:
 			// background — ignore for inspect readability
 			if i+1 < len(parts) {
-				mode, _ := strconv.Atoi(strings.TrimSpace(parts[i+1]))
+				mode, err := strconv.Atoi(strings.TrimSpace(parts[i+1]))
+				if err != nil {
+					break
+				}
 				if mode == 5 && i+2 < len(parts) {
 					i += 2
 				} else if mode == 2 && i+4 < len(parts) {

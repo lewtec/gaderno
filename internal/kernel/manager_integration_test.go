@@ -38,7 +38,10 @@ func TestStartKernelInfo(t *testing.T) {
 		DisplayName: "gaderno-test",
 		Language:    "python",
 	}
-	raw, _ := json.Marshal(kj)
+	raw, err := json.Marshal(kj)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(kdir, "kernel.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +73,9 @@ func TestExecutePrint(t *testing.T) {
 	}
 	root := t.TempDir()
 	kdir := filepath.Join(root, "kernels", "gaderno-test")
-	_ = os.MkdirAll(kdir, 0o755)
+	if err := os.MkdirAll(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	kj := SpecFile{
 		Argv: []string{
 			uv, "run", "--python", "3.12",
@@ -81,8 +86,13 @@ func TestExecutePrint(t *testing.T) {
 		DisplayName: "gaderno-test",
 		Language:    "python",
 	}
-	raw, _ := json.Marshal(kj)
-	_ = os.WriteFile(filepath.Join(kdir, "kernel.json"), raw, 0o644)
+	raw, err := json.Marshal(kj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(kdir, "kernel.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("JUPYTER_PATH", root)
 	t.Setenv("JUPYTER_DATA_DIR", filepath.Join(t.TempDir(), "empty"))
 

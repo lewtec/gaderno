@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"context"
-	"fmt"
 	"time"
 	"unicode/utf8"
 )
@@ -31,7 +30,7 @@ const MaxCompleteCodeBytes = 1 << 20 // 1 MiB
 // Returns empty matches (not error) when the shell is busy with execute.
 func (m *Manager) Complete(ctx context.Context, code string, cursorPos int) (CompleteResult, error) {
 	if m.Conn == nil {
-		return CompleteResult{}, fmt.Errorf("no connection")
+		return CompleteResult{}, ErrNoConnection
 	}
 	code, cursorPos = clampCompleteCode(code, cursorPos)
 
@@ -64,7 +63,7 @@ func (m *Manager) Complete(ctx context.Context, code string, cursorPos int) (Com
 		}
 		remain := time.Until(deadline)
 		if remain <= 0 {
-			return CompleteResult{}, fmt.Errorf("complete timeout")
+			return CompleteResult{}, ErrCompleteTimeout
 		}
 		rctx, cancel := context.WithTimeout(ctx, remain)
 		msg, ch, err := m.Conn.recvEither(rctx)
@@ -74,7 +73,7 @@ func (m *Manager) Complete(ctx context.Context, code string, cursorPos int) (Com
 				return CompleteResult{}, ctx.Err()
 			}
 			if time.Now().After(deadline) {
-				return CompleteResult{}, fmt.Errorf("complete timeout")
+				return CompleteResult{}, ErrCompleteTimeout
 			}
 			continue
 		}

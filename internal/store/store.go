@@ -3,14 +3,20 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/lucasew/gaderno/internal/document"
-	"io/fs"
+)
+
+// Package-level errors for path jail and file checks (errors.Is).
+var (
+	ErrEmptyPath       = errors.New("empty path")
+	ErrPathEscapesRoot = errors.New("path escapes root")
+	ErrNotRegularFile  = errors.New("not a regular file")
 )
 
 // Store loads and saves notebooks as .ipynb under a jail root.
@@ -29,19 +35,19 @@ func New(root string) *Store {
 func CleanRel(rel string) (string, error) {
 	rel = strings.TrimSpace(rel)
 	if rel == "" {
-		return "", fmt.Errorf("empty path")
+		return "", ErrEmptyPath
 	}
 	// Force absolute-style Clean so ".." segments collapse even when rel is relative.
 	rel = filepath.Clean("/" + rel)
 	rel = strings.TrimPrefix(rel, "/")
 	if rel == "" || rel == "." {
-		return "", fmt.Errorf("empty path")
+		return "", ErrEmptyPath
 	}
 	// After leading-slash Clean, ".." path segments are gone. Reject any leftover
 	// segment (should not happen) without false-positive on names like "foo..bar".
 	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
 		if part == ".." {
-			return "", fmt.Errorf("path escapes root")
+			return "", ErrPathEscapesRoot
 		}
 	}
 	return rel, nil
@@ -60,7 +66,7 @@ func (s *Store) Load(_ context.Context, rel string) (*document.Notebook, error) 
 		return nil, err
 	}
 	if !fi.Mode().IsRegular() {
-		return nil, fmt.Errorf("not a regular file")
+		return nil, ErrNotRegularFile
 	}
 	f, err := os.Open(abs)
 	if err != nil {
@@ -103,16 +109,22 @@ func (s *Store) Save(_ context.Context, rel string, nb *document.Notebook) error
 	tmpName := tmp.Name()
 	defer func() {
 		if tmpName != "" {
-			_ = os.Remove(tmpName)
+			if err := os.Remove(tmpName); err != nil {
+				// best-effort
+			}
 		}
 	}()
 
 	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
+		if err := tmp.Close(); err != nil {
+			// best-effort
+		}
 		return err
 	}
 	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
+		if err := tmp.Close(); err != nil {
+			// best-effort
+		}
 		return err
 	}
 	if err := tmp.Close(); err != nil {
@@ -167,7 +179,9 @@ func (s *Store) CreateNew(ctx context.Context, rel string, nb *document.Notebook
 	}
 	if err := s.Save(ctx, rel, nb); err != nil {
 		// Drop the empty claim so a retry can succeed.
-		_ = os.Remove(abs)
+		if err := os.Remove(abs); err != nil {
+			// best-effort
+		}
 		return err
 	}
 	return nil
@@ -187,7 +201,7 @@ func (s *Store) resolve(rel string) (string, error) {
 	}
 	abs := filepath.Join(root, rel)
 	if !underRoot(root, abs) {
-		return "", fmt.Errorf("path escapes root")
+		return "", ErrPathEscapesRoot
 	}
 
 	// Existing path (file or symlink): evaluate and re-check the jail.
@@ -197,7 +211,7 @@ func (s *Store) resolve(rel string) (string, error) {
 			return "", err
 		}
 		if !underRoot(root, resolved) {
-			return "", fmt.Errorf("path escapes root")
+			return "", ErrPathEscapesRoot
 		}
 		return resolved, nil
 	} else if !errors.Is(err, fs.ErrNotExist) {
@@ -212,7 +226,7 @@ func (s *Store) resolve(rel string) (string, error) {
 	}
 	out := filepath.Join(parent, filepath.Base(abs))
 	if !underRoot(root, out) {
-		return "", fmt.Errorf("path escapes root")
+		return "", ErrPathEscapesRoot
 	}
 	return out, nil
 }
@@ -252,7 +266,7 @@ func resolveExistingDir(root, dir string) (string, error) {
 		return root, nil
 	}
 	if !underRoot(root, dir) {
-		return "", fmt.Errorf("path escapes root")
+		return "", ErrPathEscapesRoot
 	}
 
 	var missing []string
@@ -271,14 +285,14 @@ func resolveExistingDir(root, dir string) (string, error) {
 				return "", err
 			}
 			if !underRoot(root, resolved) {
-				return "", fmt.Errorf("path escapes root")
+				return "", ErrPathEscapesRoot
 			}
 			out := resolved
 			for i := len(missing) - 1; i >= 0; i-- {
 				out = filepath.Join(out, missing[i])
 			}
 			if !underRoot(root, out) {
-				return "", fmt.Errorf("path escapes root")
+				return "", ErrPathEscapesRoot
 			}
 			return out, nil
 		} else if !errors.Is(err, fs.ErrNotExist) {
@@ -287,7 +301,7 @@ func resolveExistingDir(root, dir string) (string, error) {
 		missing = append(missing, filepath.Base(cur))
 		parent := filepath.Dir(cur)
 		if parent == cur {
-			return "", fmt.Errorf("path escapes root")
+			return "", ErrPathEscapesRoot
 		}
 		cur = parent
 	}

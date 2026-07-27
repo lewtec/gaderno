@@ -110,8 +110,7 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(res)
+		writeJSON(w, res)
 	})
 
 	// JSON or download of the *current* notebook: live CRDT projection when a
@@ -136,11 +135,12 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			}
 			w.Header().Set("Content-Type", "application/x-ipynb+json")
 			w.Header().Set("Content-Disposition", attachmentDisposition(path))
-			_, _ = w.Write(raw)
+			if _, err := w.Write(raw); err != nil {
+				return
+			}
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(nb)
+		writeJSON(w, nb)
 	})
 }
 

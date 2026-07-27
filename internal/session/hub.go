@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -15,6 +16,18 @@ import (
 	"github.com/lucasew/gaderno/internal/store"
 	ycrdt "github.com/reearth/ygo/crdt"
 	ysync "github.com/reearth/ygo/sync"
+)
+
+// Package-level errors for hub/session operations (errors.Is).
+var (
+	ErrKernelNameRequired    = errors.New("kernel name required")
+	ErrKernelspecUnavailable = errors.New("kernelspec not available")
+	ErrNoKernelSelected      = errors.New("no kernel selected")
+	ErrKernelSpawnFailed     = errors.New("kernel spawn failed")
+	ErrKernelSpawnTimeout    = errors.New("kernel spawn timeout")
+	ErrInvalidCellType       = errors.New("invalid cell type")
+	ErrKernelNotStarted      = errors.New("kernel not started")
+	ErrClientNotSessionReady = errors.New("client not session-ready")
 )
 
 // Client is a connected browser peer.
@@ -53,6 +66,8 @@ type Hub struct {
 	SessionID string
 	Doc       *crdt.NotebookDoc
 	store     *store.Store
+	// bg is a non-cancellable context derived at Open for timer/async store ops.
+	bg context.Context
 
 	mu        sync.Mutex
 	kernel    *kernel.Manager
@@ -92,6 +107,7 @@ func Open(ctx context.Context, st *store.Store, root, rel string) (*Hub, error) 
 		SessionID: uuid.NewString(),
 		Doc:       doc,
 		store:     st,
+		bg:        context.WithoutCancel(ctx),
 		boundName: bound,
 		phase:     phase,
 		clients:   make(map[string]*Client),
@@ -124,7 +140,9 @@ func (h *Hub) scheduleSave() {
 		h.saveTimer.Stop()
 	}
 	h.saveTimer = time.AfterFunc(500*time.Millisecond, func() {
-		_ = h.Save(context.Background())
+		if err := h.Save(h.bg); err != nil {
+			// best-effort debounced save; next edit reschedules
+		}
 	})
 }
 
@@ -180,14 +198,14 @@ func (h *Hub) statusLocked() KernelStatus {
 // If a different kernel was running, it is killed first.
 func (h *Hub) BindKernel(name string) error {
 	if name == "" {
-		return fmt.Errorf("kernel name required")
+		return ErrKernelNameRequired
 	}
 	cat, err := kernel.LoadCatalog()
 	if err != nil {
 		return err
 	}
 	if !cat.Has(name) {
-		return fmt.Errorf("kernelspec %q not available", name)
+		return fmt.Errorf("%w: %q", ErrKernelspecUnavailable, name)
 	}
 
 	h.mu.Lock()
@@ -202,7 +220,11 @@ func (h *Hub) BindKernel(name string) error {
 	h.mu.Unlock()
 
 	if old != nil {
-		_ = old.Shutdown(context.Background())
+		shCtx, cancel := context.WithTimeout(h.bg, 10*time.Second)
+		if err := old.Shutdown(shCtx); err != nil {
+			// best-effort; new bind still wins
+		}
+		cancel()
 	}
 	h.broadcastKernelStatus(st)
 	return nil
@@ -225,7 +247,7 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 	if h.boundName == "" {
 		h.phase = PhaseNeedsKernel
 		h.mu.Unlock()
-		return fmt.Errorf("no kernel selected")
+		return ErrNoKernelSelected
 	}
 	if h.spawning {
 		// wait for in-flight spawn
@@ -239,7 +261,7 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 			}
 			if !h.spawning && h.phase == PhaseDead {
 				h.mu.Unlock()
-				return fmt.Errorf("kernel spawn failed")
+				return ErrKernelSpawnFailed
 			}
 			h.mu.Unlock()
 			select {
@@ -248,7 +270,7 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
-		return fmt.Errorf("kernel spawn timeout")
+		return ErrKernelSpawnTimeout
 	}
 	h.spawning = true
 	h.phase = PhaseStarting
@@ -275,7 +297,9 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 	h.kernel = m
 	h.phase = PhaseReady
 	// persist kernelspec into notebook only after successful spawn
-	_ = h.persistKernelspecLocked(bound)
+	if err := h.persistKernelspecLocked(bound); err != nil {
+		// best-effort
+	}
 	st = h.statusLocked()
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)
@@ -306,7 +330,7 @@ func (h *Hub) persistKernelspecLocked(name string) error {
 	}
 	// Write through store so next open binds correctly.
 	// Also re-load into CRDT meta is best-effort; file is source of truth on reopen.
-	return h.store.Save(context.Background(), h.Path, nb)
+	return h.store.Save(h.bg, h.Path, nb)
 }
 
 // InsertCell adds a cell and notifies clients to rebuild structure.
@@ -345,7 +369,7 @@ func (h *Hub) MoveCell(cellID string, toIndex int) error {
 func (h *Hub) SetCellType(cellID, cellType string) error {
 	ct := document.CellType(cellType)
 	if ct != document.CellCode && ct != document.CellMarkdown && ct != document.CellRaw {
-		return fmt.Errorf("invalid cell type %q", cellType)
+		return fmt.Errorf("%w: %q", ErrInvalidCellType, cellType)
 	}
 	if err := h.Doc.SetCellType(cellID, ct); err != nil {
 		return err
@@ -356,11 +380,10 @@ func (h *Hub) SetCellType(cellID, cellType string) error {
 
 func (h *Hub) broadcastStructure() {
 	cells := h.Doc.SnapshotCells()
-	b, _ := json.Marshal(map[string]any{
+	h.BroadcastJSON(marshalHub(map[string]any{
 		"type":  "notebook.structure",
 		"cells": cells,
-	})
-	h.BroadcastJSON(b, "")
+	}), "")
 	h.scheduleSave()
 }
 
@@ -370,12 +393,11 @@ func (h *Hub) SetCellSource(cellID, source string, skipClient string) error {
 	if err := h.Doc.SetSourceServer(cellID, source); err != nil {
 		return err
 	}
-	b, _ := json.Marshal(map[string]any{
+	h.BroadcastJSON(marshalHub(map[string]any{
 		"type":    "cell.source",
 		"cell_id": cellID,
 		"source":  source,
-	})
-	h.BroadcastJSON(b, skipClient)
+	}), skipClient)
 	return nil
 }
 
@@ -415,7 +437,7 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	src := h.Doc.Source(cellID)
 	if k == nil {
 		h.mu.Unlock()
-		return kernel.ExecuteResult{}, fmt.Errorf("kernel not started")
+		return kernel.ExecuteResult{}, ErrKernelNotStarted
 	}
 	h.phase = PhaseBusy
 	st := h.statusLocked()
@@ -423,12 +445,13 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	h.broadcastKernelStatus(st)
 
 	// Server transaction first so ProjectNotebook cannot race with a mid-run save.
-	_ = h.Doc.ClearCellOutputs(cellID)
-	b0, _ := json.Marshal(map[string]any{
+	if err := h.Doc.ClearCellOutputs(cellID); err != nil {
+		// best-effort
+	}
+	h.BroadcastJSON(marshalHub(map[string]any{
 		"type":    "exec.clear",
 		"cell_id": cellID,
-	})
-	h.BroadcastJSON(b0, "")
+	}), "")
 
 	var displays []kernel.DisplayData
 	res, err := k.ExecuteOpts(ctx, src, kernel.ExecuteOpts{
@@ -573,7 +596,7 @@ func (h *Hub) ClientReady(id string) bool {
 // Peers that have not acked hello are ignored (no apply, no reply).
 func (h *Hub) HandleSyncMessage(clientID string, msg []byte) ([]byte, error) {
 	if !h.ClientReady(clientID) {
-		return nil, fmt.Errorf("client not session-ready")
+		return nil, ErrClientNotSessionReady
 	}
 	return ysync.ApplySyncMessage(h.Doc.Doc, msg, clientID)
 }
@@ -602,23 +625,29 @@ func (h *Hub) BroadcastJSON(data []byte, skipClientID string) {
 	h.broadcast(data, false, skipClientID)
 }
 
+func marshalHub(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte(`{"type":"error","text":"marshal failed"}`)
+	}
+	return b
+}
+
 func (h *Hub) broadcastKernelStatus(st KernelStatus) {
-	b, _ := json.Marshal(map[string]any{
+	h.BroadcastJSON(marshalHub(map[string]any{
 		"type":   "kernel.status",
 		"status": st,
-	})
-	h.BroadcastJSON(b, "")
+	}), "")
 }
 
 // SendKernelStatus sends status to one client (on join).
 func (h *Hub) SendKernelStatus(c *Client) {
 	st := h.Status()
-	b, _ := json.Marshal(map[string]any{
+	select {
+	case c.Out <- Outbound{Data: marshalHub(map[string]any{
 		"type":   "kernel.status",
 		"status": st,
-	})
-	select {
-	case c.Out <- Outbound{Data: b}:
+	})}:
 	default:
 	}
 }

@@ -45,19 +45,24 @@ func Start(ctx context.Context, kernelName, workDir string) (*Manager, error) {
 	}
 	connPath, err := WriteConnectionFile(tmp, cf)
 	if err != nil {
-		_ = os.RemoveAll(tmp)
+		if err := os.RemoveAll(tmp); err != nil {
+			// best-effort
+		}
 		return nil, err
 	}
 	session := uuid.NewString()
 
 	cmd, err := StartProcess(spec, connPath, workDir)
 	if err != nil {
-		_ = os.RemoveAll(tmp)
+		if err := os.RemoveAll(tmp); err != nil {
+			// best-effort
+		}
 		return nil, err
 	}
 
-	// Socket lifetime context — must outlive dial attempts (not per-try timeout).
-	sockCtx, sockCancel := context.WithCancel(context.Background())
+	// Socket lifetime context — outlives dial attempt timeouts; not cancelled
+	// when Start's ctx deadline fires after a successful dial (caller owns Manager).
+	sockCtx, sockCancel := context.WithCancel(context.WithoutCancel(ctx))
 
 	var conn *Conn
 	deadline := time.Now().Add(2 * time.Minute)
@@ -68,15 +73,23 @@ func Start(ctx context.Context, kernelName, workDir string) (*Manager, error) {
 	for time.Now().Before(deadline) {
 		if err := ctx.Err(); err != nil {
 			sockCancel()
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			_ = os.RemoveAll(tmp)
+			if err := cmd.Process.Kill(); err != nil {
+				// best-effort
+			}
+			if err := cmd.Wait(); err != nil {
+				// best-effort
+			}
+			if err := os.RemoveAll(tmp); err != nil {
+				// best-effort
+			}
 			return nil, err
 		}
 		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
 			sockCancel()
-			_ = os.RemoveAll(tmp)
-			return nil, fmt.Errorf("kernel process exited early: %v", cmd.ProcessState)
+			if err := os.RemoveAll(tmp); err != nil {
+				// best-effort
+			}
+			return nil, fmt.Errorf("%w: %v", ErrKernelExitedEarly, cmd.ProcessState)
 		}
 		conn, lastErr = Dial(sockCtx, cf, session)
 		if lastErr == nil {
@@ -85,20 +98,32 @@ func Start(ctx context.Context, kernelName, workDir string) (*Manager, error) {
 		select {
 		case <-ctx.Done():
 			sockCancel()
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			_ = os.RemoveAll(tmp)
+			if err := cmd.Process.Kill(); err != nil {
+				// best-effort
+			}
+			if err := cmd.Wait(); err != nil {
+				// best-effort
+			}
+			if err := os.RemoveAll(tmp); err != nil {
+				// best-effort
+			}
 			return nil, ctx.Err()
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
 	if conn == nil {
 		sockCancel()
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-		_ = os.RemoveAll(tmp)
+		if err := cmd.Process.Kill(); err != nil {
+			// best-effort
+		}
+		if err := cmd.Wait(); err != nil {
+			// best-effort
+		}
+		if err := os.RemoveAll(tmp); err != nil {
+			// best-effort
+		}
 		if lastErr == nil {
-			lastErr = fmt.Errorf("dial timeout")
+			lastErr = ErrDialTimeout
 		}
 		return nil, lastErr
 	}
@@ -117,7 +142,9 @@ func Start(ctx context.Context, kernelName, workDir string) (*Manager, error) {
 	infoCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	if _, err := conn.KernelInfo(infoCtx); err != nil {
-		_ = m.Shutdown(context.Background())
+		if shErr := m.Shutdown(context.WithoutCancel(ctx)); shErr != nil {
+			// best-effort cleanup after failed kernel_info
+		}
 		return nil, fmt.Errorf("kernel_info: %w", err)
 	}
 	return m, nil
@@ -128,7 +155,7 @@ func Start(ctx context.Context, kernelName, workDir string) (*Manager, error) {
 // message is sent; does not wait for the kernel to become idle.
 func (m *Manager) Interrupt(ctx context.Context) error {
 	if m.Conn == nil {
-		return fmt.Errorf("no connection")
+		return ErrNoConnection
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -143,7 +170,9 @@ func (m *Manager) Interrupt(ctx context.Context) error {
 // Shutdown interrupts and kills the kernel, closes sockets.
 func (m *Manager) Shutdown(ctx context.Context) error {
 	if m.Conn != nil {
-		_ = m.Conn.Close()
+		if err := m.Conn.Close(); err != nil {
+			// best-effort
+		}
 		m.Conn = nil
 	}
 	if m.cancel != nil {
@@ -151,22 +180,30 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 		m.cancel = nil
 	}
 	if m.Cmd != nil && m.Cmd.Process != nil {
-		_ = killProcessGroup(m.Cmd, syscall.SIGINT)
+		if err := killProcessGroup(m.Cmd, syscall.SIGINT); err != nil {
+			// best-effort
+		}
 		done := make(chan error, 1)
 		go func() { done <- m.Cmd.Wait() }()
 		select {
 		case <-done:
 		case <-time.After(3 * time.Second):
-			_ = killProcessGroup(m.Cmd, syscall.SIGKILL)
+			if err := killProcessGroup(m.Cmd, syscall.SIGKILL); err != nil {
+				// best-effort
+			}
 			<-done
 		case <-ctx.Done():
-			_ = killProcessGroup(m.Cmd, syscall.SIGKILL)
+			if err := killProcessGroup(m.Cmd, syscall.SIGKILL); err != nil {
+				// best-effort
+			}
 			<-done
 		}
 		m.Cmd = nil
 	}
 	if m.tmpDir != "" {
-		_ = os.RemoveAll(m.tmpDir)
+		if err := os.RemoveAll(m.tmpDir); err != nil {
+			// best-effort
+		}
 	}
 	return nil
 }

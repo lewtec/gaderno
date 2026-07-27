@@ -6,11 +6,20 @@ import (
 	"time"
 )
 
-// Sentinel errors for Inspect (and shared no-connection for Manager methods).
-// Callers can use errors.Is; messages are stable.
+// Sentinel errors for kernel I/O and lifecycle (errors.Is).
+// Shared across inspect/complete/execute/manager/zmq/spawn/catalog.
 var (
-	ErrNoConnection   = errors.New("no connection")
-	ErrInspectTimeout = errors.New("inspect timeout")
+	ErrNoConnection       = errors.New("no connection")
+	ErrInspectTimeout     = errors.New("inspect timeout")
+	ErrCompleteTimeout    = errors.New("complete timeout")
+	ErrExecuteTimeout     = errors.New("execute timeout")
+	ErrDialTimeout        = errors.New("dial timeout")
+	ErrEmptyArgv          = errors.New("empty argv")
+	ErrShellClosed        = errors.New("shell closed")
+	ErrIOPubClosed        = errors.New("iopub closed")
+	ErrConnectionClosed   = errors.New("connection closed")
+	ErrKernelExitedEarly  = errors.New("kernel process exited early")
+	ErrKernelspecNotFound = errors.New("kernelspec not found")
 )
 
 // InspectResult is the Jupyter inspect_reply payload we surface to the UI.

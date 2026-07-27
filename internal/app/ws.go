@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -42,8 +43,9 @@ type wsControl struct {
 
 func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) {
 	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
+		reqCtx := r.Context()
 		path := r.PathValue("path")
-		hub, err := reg.GetOrOpen(r.Context(), path)
+		hub, err := reg.GetOrOpen(reqCtx, path)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -65,7 +67,9 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 		go func() {
 			defer close(done)
 			for out := range client.Out {
-				_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+					return
+				}
 				mt := websocket.TextMessage
 				if out.Binary {
 					mt = websocket.BinaryMessage
@@ -79,15 +83,21 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 		// hello only until client acks — do not push CRDT state or accept
 		// client updates before the session fence passes (prevents a tab with
 		// a previous Y.Doc from poisoning a recreated hub on reconnect).
-		hello, _ := json.Marshal(map[string]string{
+		hello, err := json.Marshal(map[string]string{
 			"type":       "hello",
 			"session_id": hub.SessionID,
 			"client_id":  clientID,
 		})
+		if err != nil {
+			logger.Error("ws hello marshal", "err", err)
+			return
+		}
 		client.Out <- session.Outbound{Data: hello}
 
 		for {
-			_ = conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+			if err := conn.SetReadDeadline(time.Now().Add(120 * time.Second)); err != nil {
+				break
+			}
 			mt, data, err := conn.ReadMessage()
 			if err != nil {
 				break
@@ -114,7 +124,9 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 					var ack struct {
 						SessionID string `json:"session_id"`
 					}
-					_ = json.Unmarshal(data, &ack)
+					if err := json.Unmarshal(data, &ack); err != nil {
+						continue
+					}
 					if ack.SessionID != "" && ack.SessionID != hub.SessionID {
 						sendErr(client, "session_id mismatch")
 						continue
@@ -138,28 +150,37 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 					hub.BroadcastJSON(data, clientID)
 					continue
 				}
-				handleControl(hub, client, clientID, ctrl, logger)
+				handleControl(reqCtx, hub, client, clientID, ctrl, logger)
 			}
 		}
 		<-done
 	})
 }
 
-func handleControl(hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
+// marshalWS encodes v as JSON; on failure returns a minimal error envelope.
+func marshalWS(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return []byte(`{"type":"error","text":"marshal failed"}`)
+	}
+	return b
+}
+
+func handleControl(ctx context.Context, hub *session.Hub, client *session.Client, clientID string, ctrl wsControl, logger *slog.Logger) {
+	// Detach from the HTTP request cancel so long work survives brief WS flaps.
+	ctx = context.WithoutCancel(ctx)
 	switch ctrl.Type {
 	case "ping":
-		b, _ := json.Marshal(map[string]string{"type": "pong"})
 		select {
-		case client.Out <- session.Outbound{Data: b}:
+		case client.Out <- session.Outbound{Data: marshalWS(map[string]string{"type": "pong"})}:
 		default:
 		}
 	case "chat.send":
-		b, _ := json.Marshal(map[string]string{
+		hub.BroadcastJSON(marshalWS(map[string]string{
 			"type": "chat.message",
 			"text": ctrl.Text,
 			"from": client.ID[:8],
-		})
-		hub.BroadcastJSON(b, "")
+		}), "")
 	case "cell.set_source":
 		// Legacy full-cell replace (still used as Run flush safety).
 		if ctrl.CellID == "" {
@@ -170,12 +191,11 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 			sendErr(client, err.Error())
 			return
 		}
-		b, _ := json.Marshal(map[string]any{
+		select {
+		case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
 			"type":    "cell.source_ack",
 			"cell_id": ctrl.CellID,
-		})
-		select {
-		case client.Out <- session.Outbound{Data: b}:
+		})}:
 		default:
 		}
 	case "cell.insert":
@@ -196,9 +216,8 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 			return
 		}
 		// structure broadcast already sent; include focus hint to originator
-		b, _ := json.Marshal(map[string]any{"type": "cell.inserted", "cell_id": id, "index": idx})
 		select {
-		case client.Out <- session.Outbound{Data: b}:
+		case client.Out <- session.Outbound{Data: marshalWS(map[string]any{"type": "cell.inserted", "cell_id": id, "index": idx})}:
 		default:
 		}
 	case "cell.delete":
@@ -241,15 +260,16 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 		go func() {
 			// Prefer live CRDT text; client source is a flush backup.
 			if ctrl.CellID != "" && ctrl.Source != "" {
-				_ = hub.SetCellSource(ctrl.CellID, ctrl.Source, clientID)
+				if err := hub.SetCellSource(ctrl.CellID, ctrl.Source, clientID); err != nil {
+					// continue with CRDT source
+				}
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 			defer cancel()
 			if err := hub.EnsureKernel(ctx, ""); err != nil {
-				if err.Error() == "no kernel selected" {
-					b, _ := json.Marshal(map[string]any{"type": "kernel.needs_pick"})
+				if errors.Is(err, session.ErrNoKernelSelected) {
 					select {
-					case client.Out <- session.Outbound{Data: b}:
+					case client.Out <- session.Outbound{Data: marshalWS(map[string]any{"type": "kernel.needs_pick"})}:
 					default:
 					}
 				}
@@ -258,32 +278,30 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 			}
 			res, err := hub.ExecuteCell(ctx, ctrl.CellID,
 				func(ch kernel.StreamChunk) {
-					b, _ := json.Marshal(map[string]any{
+					hub.BroadcastJSON(marshalWS(map[string]any{
 						"type":    "exec.stream",
 						"cell_id": ctrl.CellID,
 						"name":    ch.Name,
 						"text":    ch.Text,
-					})
-					hub.BroadcastJSON(b, "")
+					}), "")
 				},
 				func(dd kernel.DisplayData) {
 					// Full mime bundle — client chooses renderers.
-					b, _ := json.Marshal(map[string]any{
+					hub.BroadcastJSON(marshalWS(map[string]any{
 						"type":        "exec.display",
 						"cell_id":     ctrl.CellID,
 						"output_type": dd.OutputType,
 						"data":        dd.Data,
 						"metadata":    dd.Metadata,
 						"transient":   dd.Transient,
-					})
-					hub.BroadcastJSON(b, "")
+					}), "")
 				},
 			)
 			if err != nil {
 				sendErr(client, err.Error())
 				return
 			}
-			b, _ := json.Marshal(map[string]any{
+			hub.BroadcastJSON(marshalWS(map[string]any{
 				"type":            "exec.result",
 				"cell_id":         ctrl.CellID,
 				"status":          res.Status,
@@ -293,8 +311,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				"evalue":          res.Evalue,
 				"traceback":       res.Traceback,
 				"execution_count": res.ExecutionCount,
-			})
-			hub.BroadcastJSON(b, "")
+			}), "")
 		}()
 	case "complete.request":
 		// Async; reply only to requesting client (not broadcast).
@@ -310,11 +327,12 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				pos = len(code)
 			}
 			reqID := ctrl.ReqID
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 			defer cancel()
 			res, err := hub.Complete(ctx, code, pos)
 			if err != nil {
-				b, _ := json.Marshal(map[string]any{
+				select {
+				case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
 					"type":         "complete.reply",
 					"req_id":       reqID,
 					"status":       "error",
@@ -322,23 +340,20 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 					"cursor_start": pos,
 					"cursor_end":   pos,
 					"text":         err.Error(),
-				})
-				select {
-				case client.Out <- session.Outbound{Data: b}:
+				})}:
 				default:
 				}
 				return
 			}
-			b, _ := json.Marshal(map[string]any{
+			select {
+			case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
 				"type":         "complete.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
 				"matches":      res.Matches,
 				"cursor_start": res.CursorStart,
 				"cursor_end":   res.CursorEnd,
-			})
-			select {
-			case client.Out <- session.Outbound{Data: b}:
+			})}:
 			default:
 			}
 		}()
@@ -360,25 +375,25 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				detail = *ctrl.DetailLevel
 			}
 			reqID := ctrl.ReqID
-			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 			defer cancel()
 			res, err := hub.Inspect(ctx, code, pos, detail)
 			if err != nil {
-				b, _ := json.Marshal(map[string]any{
+				select {
+				case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
 					"type":         "inspect.reply",
 					"req_id":       reqID,
 					"status":       "error",
 					"found":        false,
 					"text":         err.Error(),
 					"detail_level": detail,
-				})
-				select {
-				case client.Out <- session.Outbound{Data: b}:
+				})}:
 				default:
 				}
 				return
 			}
-			b, _ := json.Marshal(map[string]any{
+			select {
+			case client.Out <- session.Outbound{Data: marshalWS(map[string]any{
 				"type":         "inspect.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
@@ -386,9 +401,7 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 				"text":         res.Text,
 				"html":         res.HTML,
 				"detail_level": res.DetailLevel,
-			})
-			select {
-			case client.Out <- session.Outbound{Data: b}:
+			})}:
 			default:
 			}
 		}()
@@ -396,9 +409,8 @@ func handleControl(hub *session.Hub, client *session.Client, clientID string, ct
 }
 
 func sendErr(client *session.Client, msg string) {
-	b, _ := json.Marshal(map[string]string{"type": "error", "text": msg})
 	select {
-	case client.Out <- session.Outbound{Data: b}:
+	case client.Out <- session.Outbound{Data: marshalWS(map[string]string{"type": "error", "text": msg})}:
 	default:
 	}
 }

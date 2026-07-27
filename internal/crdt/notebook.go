@@ -2,11 +2,19 @@ package crdt
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/lucasew/gaderno/internal/document"
 	ycrdt "github.com/reearth/ygo/crdt"
+)
+
+// Package-level errors for notebook CRDT operations (errors.Is).
+var (
+	ErrNilNotebook  = errors.New("nil notebook")
+	ErrEmptyCellID  = errors.New("empty cell id")
+	ErrCellNotFound = errors.New("cell not found")
 )
 
 // Root type names in the shared Y.Doc.
@@ -50,7 +58,7 @@ func sourceKey(cellID string) string {
 // Clears cells order first so reloads never duplicate ids.
 func (n *NotebookDoc) LoadFromNotebook(nb *document.Notebook) error {
 	if nb == nil {
-		return fmt.Errorf("nil notebook")
+		return ErrNilNotebook
 	}
 	document.EnsureCellIDs(nb)
 
@@ -81,7 +89,10 @@ func (n *NotebookDoc) LoadFromNotebook(nb *document.Notebook) error {
 			if c.ExecutionCount != nil {
 				cellData.Set(txn, id+".execution_count", float64(*c.ExecutionCount))
 			}
-			outs, _ := json.Marshal(c.Outputs)
+			outs, err := json.Marshal(c.Outputs)
+			if err != nil {
+				return err
+			}
 			cellData.Set(txn, id+".outputs_json", string(outs))
 
 			st := sources[id]
@@ -181,7 +192,7 @@ func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 // SetSourceServer replaces cell source (server-side writer). Prefer yjs collab for live typing.
 func (n *NotebookDoc) SetSourceServer(cellID, source string) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	st := n.Doc.GetText(sourceKey(cellID))
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -232,7 +243,7 @@ func (n *NotebookDoc) InsertCell(index int, cellType document.CellType, source s
 // DeleteCell removes a cell by id from order (source text may remain orphaned; ok for yjs).
 func (n *NotebookDoc) DeleteCell(cellID string) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	ids := n.CellIDs()
 	idx := -1
@@ -243,7 +254,7 @@ func (n *NotebookDoc) DeleteCell(cellID string) error {
 		}
 	}
 	if idx < 0 {
-		return fmt.Errorf("cell %q not found", cellID)
+		return fmt.Errorf("%w: %q", ErrCellNotFound, cellID)
 	}
 	cells := n.Doc.GetArray(RootCells)
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -260,7 +271,7 @@ func (n *NotebookDoc) DeleteCell(cellID string) error {
 // Delete+insert is correct for a single server-king writer of cell order.
 func (n *NotebookDoc) MoveCell(cellID string, toIndex int) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	ids := n.CellIDs()
 	from := -1
@@ -271,7 +282,7 @@ func (n *NotebookDoc) MoveCell(cellID string, toIndex int) error {
 		}
 	}
 	if from < 0 {
-		return fmt.Errorf("cell %q not found", cellID)
+		return fmt.Errorf("%w: %q", ErrCellNotFound, cellID)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -301,7 +312,7 @@ func (n *NotebookDoc) MoveCell(cellID string, toIndex int) error {
 // SetCellType updates cell type metadata.
 func (n *NotebookDoc) SetCellType(cellID string, cellType document.CellType) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	cellData := n.Doc.GetMap(RootCellData)
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -314,7 +325,7 @@ func (n *NotebookDoc) SetCellType(cellID string, cellType document.CellType) err
 // Server-only path used at the start of execute (SPEC: dequeue clears outputs).
 func (n *NotebookDoc) ClearCellOutputs(cellID string) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	cellData := n.Doc.GetMap(RootCellData)
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -330,7 +341,7 @@ func (n *NotebookDoc) ClearCellOutputs(cellID string) error {
 // status is idle | error (nbformat cell chrome, not kernel phase).
 func (n *NotebookDoc) ApplyCellExecution(cellID string, outputs []document.Output, execCount *int, status string) error {
 	if cellID == "" {
-		return fmt.Errorf("empty cell id")
+		return ErrEmptyCellID
 	}
 	if status == "" {
 		status = "idle"

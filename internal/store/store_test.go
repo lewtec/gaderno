@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,8 +10,6 @@ import (
 	"time"
 
 	"github.com/lucasew/gaderno/internal/document"
-	"errors"
-	"io/fs"
 )
 
 func TestSaveLoad(t *testing.T) {
@@ -215,8 +215,8 @@ func TestLoadRejectsSymlinkEscape(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected symlink escape to fail, got notebook source %q", nb.Cells[0].SourceString())
 	}
-	if !strings.Contains(err.Error(), "escapes root") {
-		t.Fatalf("want escapes root, got %v", err)
+	if !errors.Is(err, ErrPathEscapesRoot) {
+		t.Fatalf("want ErrPathEscapesRoot, got %v", err)
 	}
 }
 
@@ -302,8 +302,8 @@ func TestLoadRejectsNonRegular(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for non-regular path")
 		}
-		if !strings.Contains(err.Error(), "regular file") {
-			t.Fatalf("want not a regular file, got %v", err)
+		if !errors.Is(err, ErrNotRegularFile) {
+			t.Fatalf("want ErrNotRegularFile, got %v", err)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Load hung on non-regular path")
