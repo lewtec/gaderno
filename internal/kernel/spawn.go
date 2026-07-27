@@ -1,12 +1,18 @@
 package kernel
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+)
+
+// Sentinel errors for StartProcess (errors.Is).
+var (
+	// ErrEmptyArgv is returned when the expanded kernelspec argv is empty.
+	ErrEmptyArgv = errors.New("empty argv")
 )
 
 // ExpandArgv replaces Jupyter placeholders in kernelspec argv.
@@ -24,7 +30,7 @@ func ExpandArgv(argv []string, connectionFile, resourceDir string) []string {
 func StartProcess(spec Spec, connectionFile, cwd string) (*exec.Cmd, error) {
 	argv := ExpandArgv(spec.Spec.Argv, connectionFile, spec.ResourceDir)
 	if len(argv) == 0 {
-		return nil, fmt.Errorf("empty argv")
+		return nil, ErrEmptyArgv
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = cwd
