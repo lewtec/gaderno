@@ -2,8 +2,10 @@ package kernel
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -47,8 +49,21 @@ func TestDiscoverJupyterPath(t *testing.T) {
 func TestFindMissing(t *testing.T) {
 	t.Setenv("JUPYTER_PATH", t.TempDir())
 	t.Setenv("JUPYTER_DATA_DIR", t.TempDir())
+	ResetCatalogForTest()
+	t.Cleanup(ResetCatalogForTest)
 	_, err := Find("definitely-missing-kernel-xyz")
-	if err == nil {
-		t.Fatal("expected error")
+	if !errors.Is(err, ErrKernelspecNotFound) {
+		t.Fatalf("errors.Is(ErrKernelspecNotFound): got %v", err)
+	}
+}
+
+func TestCatalogSpecNotFound(t *testing.T) {
+	c := &Catalog{byName: map[string]Spec{}}
+	_, err := c.Spec("missing-kernel")
+	if !errors.Is(err, ErrKernelspecNotFound) {
+		t.Fatalf("errors.Is(ErrKernelspecNotFound): got %v", err)
+	}
+	if !strings.Contains(err.Error(), "missing-kernel") {
+		t.Fatalf("name not in message: %v", err)
 	}
 }

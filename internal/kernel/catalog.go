@@ -1,9 +1,15 @@
 package kernel
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
+)
+
+// Sentinel errors for catalog lookup (errors.Is).
+var (
+	ErrKernelspecNotFound = errors.New("kernelspec not found")
 )
 
 // Group names for the chooser UI.
@@ -121,7 +127,7 @@ func (c *Catalog) Has(name string) bool {
 func (c *Catalog) Spec(name string) (Spec, error) {
 	s, ok := c.byName[name]
 	if !ok {
-		return Spec{}, fmt.Errorf("kernelspec %q not found", name)
+		return Spec{}, fmt.Errorf("%w: %q", ErrKernelspecNotFound, name)
 	}
 	return s, nil
 }
