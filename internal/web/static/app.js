@@ -67,16 +67,18 @@ import { createCollabSession } from "./editor.js";
     setStatus(withKernel("Live"), state || "ok");
   }
 
-  function sendJSON(obj) {
+  function sendWhenOpen(payload) {
     if (!ws || ws.readyState !== 1) return false;
-    ws.send(JSON.stringify(obj));
+    ws.send(payload);
     return true;
   }
 
+  function sendJSON(obj) {
+    return sendWhenOpen(JSON.stringify(obj));
+  }
+
   function sendBinary(u8) {
-    if (!ws || ws.readyState !== 1) return false;
-    ws.send(u8);
-    return true;
+    return sendWhenOpen(u8);
   }
 
   function flushSource(cellId) {
@@ -654,26 +656,29 @@ import { createCollabSession } from "./editor.js";
     );
   }
 
-  function enterMarkdownEdit(cell) {
-    if (!cell || !api) return;
+  function markdownCellParts(cell) {
+    if (!cell || !api) return null;
     const id = cell.getAttribute("data-cell-id");
     const preview = $(".md-preview", cell);
     const host = $("[data-gaderno-editor]", cell);
-    if (!preview || !host) return;
-    preview.hidden = true;
-    host.hidden = false;
-    api.focus(id);
+    if (!preview || !host) return null;
+    return { id, preview, host };
+  }
+
+  function enterMarkdownEdit(cell) {
+    const p = markdownCellParts(cell);
+    if (!p) return;
+    p.preview.hidden = true;
+    p.host.hidden = false;
+    api.focus(p.id);
   }
 
   function exitMarkdownEdit(cell) {
-    if (!cell || !api) return;
-    const id = cell.getAttribute("data-cell-id");
-    const preview = $(".md-preview", cell);
-    const host = $("[data-gaderno-editor]", cell);
-    if (!preview || !host) return;
-    preview.textContent = api.getSource(id) || "";
-    preview.hidden = false;
-    host.hidden = true;
+    const p = markdownCellParts(cell);
+    if (!p) return;
+    p.preview.textContent = api.getSource(p.id) || "";
+    p.preview.hidden = false;
+    p.host.hidden = true;
   }
 
   function rebuildInsertGaps(root) {

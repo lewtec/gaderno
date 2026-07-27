@@ -1,0 +1,10 @@
+# Generated / vendored — skipped by rft crawl (linguist-generated) and collapsed in GitHub diffs.
+
+# templ generate (see generate.go / mise)
+*_templ.go                              linguist-generated=true
+
+# Bun-built editor bundle (package.json build:js)
+internal/web/static/editor.js           linguist-generated=true
+
+# Copied from node_modules (scripts/vendor-web.ts)
+internal/web/static/vendor/**           linguist-generated=true

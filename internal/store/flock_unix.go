@@ -3,6 +3,7 @@
 package store
 
 import (
+	"errors"
 	"os"
 	"syscall"
 )
@@ -22,7 +23,7 @@ func tryFlock(f *os.File, exclusive bool) error {
 		return nil
 	}
 	// ENOTSUP and EOPNOTSUPP are the same errno on Linux.
-	if err == syscall.ENOSYS || err == syscall.ENOTSUP {
+	if errors.Is(err, syscall.ENOSYS) || errors.Is(err, syscall.ENOTSUP) {
 		return nil
 	}
 	return err

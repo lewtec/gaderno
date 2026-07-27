@@ -163,25 +163,21 @@ func (c *Conn) SendControl(msg Message) error {
 
 // RecvShell receives one shell message (from reader loop).
 func (c *Conn) RecvShell(ctx context.Context) (Message, error) {
-	select {
-	case <-ctx.Done():
-		return Message{}, ctx.Err()
-	case msg, ok := <-c.shellCh:
-		if !ok {
-			return Message{}, ErrShellClosed
-		}
-		return msg, nil
-	}
+	return recvMsg(ctx, c.shellCh, ErrShellClosed)
 }
 
 // RecvIOPub receives one iopub message (from reader loop).
 func (c *Conn) RecvIOPub(ctx context.Context) (Message, error) {
+	return recvMsg(ctx, c.iopubCh, ErrIOPubClosed)
+}
+
+func recvMsg(ctx context.Context, ch <-chan Message, closed error) (Message, error) {
 	select {
 	case <-ctx.Done():
 		return Message{}, ctx.Err()
-	case msg, ok := <-c.iopubCh:
+	case msg, ok := <-ch:
 		if !ok {
-			return Message{}, ErrIOPubClosed
+			return Message{}, closed
 		}
 		return msg, nil
 	}

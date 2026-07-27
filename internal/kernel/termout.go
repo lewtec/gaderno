@@ -176,9 +176,9 @@ func (t *TermFilter) consumeESC(s string, i int) int {
 	case '[': // CSI
 		return t.consumeCSI(s, i+2)
 	case ']': // OSC … BEL or ST
-		return consumeOSC(s, i+2)
+		return consumeStringTerm(s, i+2)
 	case 'P', 'X', '^', '_': // DCS/SOS/PM/APC … ST
-		return consumeST(s, i+2)
+		return consumeStringTerm(s, i+2)
 	case 'c', '7', '8', 'D', 'E', 'H', 'M', 'Z', '>', '=', 'N', 'O':
 		// single-byte ESC commands / shifts
 		return i + 2
@@ -335,7 +335,9 @@ func csiNum(p string, def int) int {
 	return min(n, termMaxCSIParam)
 }
 
-func consumeOSC(s string, i int) int {
+// consumeStringTerm skips an OSC/DCS/… payload until BEL or ST (ESC \).
+// OSC and ST-terminated sequences share the same terminators (order does not matter).
+func consumeStringTerm(s string, i int) int {
 	for i < len(s) {
 		if s[i] == 0x07 { // BEL
 			return i + 1
@@ -348,15 +350,4 @@ func consumeOSC(s string, i int) int {
 	return len(s)
 }
 
-func consumeST(s string, i int) int {
-	for i < len(s) {
-		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '\\' {
-			return i + 2
-		}
-		if s[i] == 0x07 {
-			return i + 1
-		}
-		i++
-	}
-	return len(s)
-}
+
