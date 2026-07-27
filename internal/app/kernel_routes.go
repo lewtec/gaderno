@@ -31,9 +31,8 @@ func registerKernelRoutes(mux *http.ServeMux, reg *session.Registry, logger *slo
 			http.Error(w, "path and name required", http.StatusBadRequest)
 			return
 		}
-		hub, err := reg.GetOrOpen(r.Context(), body.Path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		hub, ok := openHub(w, r, reg, body.Path)
+		if !ok {
 			return
 		}
 		if err := hub.BindKernel(body.Name); err != nil {
@@ -49,9 +48,8 @@ func registerKernelRoutes(mux *http.ServeMux, reg *session.Registry, logger *slo
 			http.Error(w, "path required", http.StatusBadRequest)
 			return
 		}
-		hub, err := reg.GetOrOpen(r.Context(), path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		hub, ok := openHub(w, r, reg, path)
+		if !ok {
 			return
 		}
 		writeJSON(w, hub.Status())

@@ -72,9 +72,8 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			http.Error(w, "path required", http.StatusBadRequest)
 			return
 		}
-		hub, err := reg.GetOrOpen(r.Context(), body.Path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		hub, ok := openHub(w, r, reg, body.Path)
+		if !ok {
 			return
 		}
 		if err := hub.Save(r.Context()); err != nil {
@@ -94,9 +93,8 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			http.Error(w, "path and cell_id required", http.StatusBadRequest)
 			return
 		}
-		hub, err := reg.GetOrOpen(r.Context(), body.Path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		hub, ok := openHub(w, r, reg, body.Path)
+		if !ok {
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)

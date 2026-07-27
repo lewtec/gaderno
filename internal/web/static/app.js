@@ -73,6 +73,19 @@ import { createCollabSession } from "./editor.js";
     }, ms);
   }
 
+  function focusLater(el, ms) {
+    if (!el) return;
+    setTimeout(function () {
+      el.focus();
+    }, ms || 0);
+  }
+
+  function removeAll(sel, root) {
+    $all(sel, root).forEach(function (el) {
+      el.remove();
+    });
+  }
+
   function sendWhenOpen(payload) {
     if (!ws || ws.readyState !== 1) return false;
     ws.send(payload);
@@ -689,9 +702,7 @@ import { createCollabSession } from "./editor.js";
 
   function rebuildInsertGaps(root) {
     // Remove existing gaps then reinsert around cells
-    $all(".cell-insert", root).forEach(function (g) {
-      g.remove();
-    });
+    removeAll(".cell-insert", root);
     const rows = $all(":scope > .cell-row", root);
     if (rows.length === 0) return;
     rows.forEach(function (row) {
@@ -718,9 +729,7 @@ import { createCollabSession } from "./editor.js";
       unique.push(c);
     });
 
-    $all(":scope > :not(.cell-row)", root).forEach(function (el) {
-      el.remove();
-    });
+    removeAll(":scope > :not(.cell-row)", root);
 
     if (unique.length === 0) {
       root.innerHTML =
@@ -944,10 +953,7 @@ import { createCollabSession } from "./editor.js";
       localStorage.setItem(CHAT_KEY, open ? "1" : "0");
     } catch (_) {}
     if (open) {
-      const input = document.getElementById("chat-input");
-      if (input) setTimeout(function () {
-        input.focus();
-      }, 200);
+      focusLater(document.getElementById("chat-input"), 200);
     }
   }
 
@@ -1115,10 +1121,7 @@ import { createCollabSession } from "./editor.js";
       '<div class="flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs">' +
       '<span class="loading loading-spinner loading-xs"></span>Loading kernels…</div>';
     kernelDialog.showModal();
-    if (kernelFilter)
-      setTimeout(function () {
-        kernelFilter.focus();
-      }, 50);
+    if (kernelFilter) focusLater(kernelFilter, 50);
     try {
       const r = await fetch("/api/kernels");
       if (!r.ok) throw new Error("load failed");

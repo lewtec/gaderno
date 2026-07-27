@@ -16,6 +16,20 @@ func writeBody(w http.ResponseWriter, body string) {
 	}
 }
 
+// plainHandler responds with a fixed body (for test mux wiring).
+func plainHandler(body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeBody(w, body)
+	}
+}
+
+// gatedHandler mounts pattern → body on a mux behind g.Middleware.
+func gatedHandler(g *Gate, pattern, body string) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc(pattern, plainHandler(body))
+	return g.Middleware(mux)
+}
+
 func TestIsLoopbackListen(t *testing.T) {
 	cases := []struct {
 		addr string
@@ -52,27 +66,16 @@ func TestCheckBind(t *testing.T) {
 }
 
 func TestGateDisabled(t *testing.T) {
-	g := New("")
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /secret", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		writeBody(w, "ok")
-	})
-	srv := g.Middleware(mux)
+	h := gatedHandler(New(""), "GET /secret", "ok")
 	rr := httptest.NewRecorder()
-	srv.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/secret", nil))
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/secret", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("disabled gate code=%d", rr.Code)
 	}
 }
 
 func TestGateBearerAndCookie(t *testing.T) {
-	g := New("s3cret")
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "ok")
-	})
-	h := g.Middleware(mux)
+	h := gatedHandler(New("s3cret"), "GET /api/x", "ok")
 
 	// No creds → 401
 	rr := httptest.NewRecorder()
@@ -124,12 +127,7 @@ func TestGateBearerAndCookie(t *testing.T) {
 }
 
 func TestGatePublicHealthz(t *testing.T) {
-	g := New("s3cret")
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "ok\n")
-	})
-	h := g.Middleware(mux)
+	h := gatedHandler(New("s3cret"), "GET /healthz", "ok\n")
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rr.Code != http.StatusOK {
@@ -154,9 +152,7 @@ func TestTicketSingleUse(t *testing.T) {
 func TestTicketOnWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "upgraded")
-	})
+	mux.HandleFunc("GET /ws/notebooks/{path...}", plainHandler("upgraded"))
 	g.RegisterTicketRoute(mux)
 	h := g.Middleware(mux)
 
@@ -193,12 +189,8 @@ func TestTicketOnWSPath(t *testing.T) {
 func TestTicketRejectedOnNonWSPath(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/x", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "ok")
-	})
-	mux.HandleFunc("GET /ws/notebooks/{path...}", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "upgraded")
-	})
+	mux.HandleFunc("GET /api/x", plainHandler("ok"))
+	mux.HandleFunc("GET /ws/notebooks/{path...}", plainHandler("upgraded"))
 	h := g.Middleware(mux)
 
 	id, _, err := g.MintTicket()
@@ -224,9 +216,7 @@ func TestTicketRejectedOnNonWSPath(t *testing.T) {
 func TestHTMLAuthPage(t *testing.T) {
 	g := New("s3cret")
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		writeBody(w, "home")
-	})
+	mux.HandleFunc("GET /{$}", plainHandler("home"))
 	h := g.Middleware(mux)
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

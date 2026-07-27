@@ -349,20 +349,12 @@ func (h *Hub) InsertCell(index int, cellType string) (string, error) {
 
 // DeleteCell removes a cell and notifies clients.
 func (h *Hub) DeleteCell(cellID string) error {
-	if err := h.Doc.DeleteCell(cellID); err != nil {
-		return err
-	}
-	h.broadcastStructure()
-	return nil
+	return h.afterDocChange(h.Doc.DeleteCell(cellID))
 }
 
 // MoveCell reorders a cell and notifies clients.
 func (h *Hub) MoveCell(cellID string, toIndex int) error {
-	if err := h.Doc.MoveCell(cellID, toIndex); err != nil {
-		return err
-	}
-	h.broadcastStructure()
-	return nil
+	return h.afterDocChange(h.Doc.MoveCell(cellID, toIndex))
 }
 
 // SetCellType changes code/markdown and notifies clients to rebuild.
@@ -371,7 +363,12 @@ func (h *Hub) SetCellType(cellID, cellType string) error {
 	if ct != document.CellCode && ct != document.CellMarkdown && ct != document.CellRaw {
 		return fmt.Errorf("%w: %q", ErrInvalidCellType, cellType)
 	}
-	if err := h.Doc.SetCellType(cellID, ct); err != nil {
+	return h.afterDocChange(h.Doc.SetCellType(cellID, ct))
+}
+
+// afterDocChange broadcasts structure when a CRDT mutation succeeds.
+func (h *Hub) afterDocChange(err error) error {
+	if err != nil {
 		return err
 	}
 	h.broadcastStructure()
