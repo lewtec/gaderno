@@ -1,6 +1,8 @@
 package crdt
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/lucasew/gaderno/internal/document"
@@ -182,5 +184,41 @@ func TestApplyCellExecutionError(t *testing.T) {
 	}
 	if out.Cells[0].Outputs[0].Ename != "ValueError" {
 		t.Fatalf("ename %q", out.Cells[0].Outputs[0].Ename)
+	}
+}
+
+func TestValidationSentinels(t *testing.T) {
+	d := New()
+	if err := d.LoadFromNotebook(nil); !errors.Is(err, ErrNilNotebook) {
+		t.Fatalf("LoadFromNotebook(nil): got %v, want ErrNilNotebook", err)
+	}
+	if err := d.SetSourceServer("", "x"); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("SetSourceServer empty id: got %v, want ErrEmptyCellID", err)
+	}
+	if err := d.DeleteCell(""); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("DeleteCell empty id: got %v, want ErrEmptyCellID", err)
+	}
+	if err := d.MoveCell("", 0); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("MoveCell empty id: got %v, want ErrEmptyCellID", err)
+	}
+	if err := d.SetCellType("", document.CellCode); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("SetCellType empty id: got %v, want ErrEmptyCellID", err)
+	}
+	if err := d.ClearCellOutputs(""); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("ClearCellOutputs empty id: got %v, want ErrEmptyCellID", err)
+	}
+	if err := d.ApplyCellExecution("", nil, nil, "idle"); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("ApplyCellExecution empty id: got %v, want ErrEmptyCellID", err)
+	}
+	err := d.DeleteCell("missing")
+	if !errors.Is(err, ErrCellNotFound) {
+		t.Fatalf("DeleteCell missing: got %v, want ErrCellNotFound", err)
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("DeleteCell missing: error %q should include cell id", err)
+	}
+	err = d.MoveCell("missing", 0)
+	if !errors.Is(err, ErrCellNotFound) {
+		t.Fatalf("MoveCell missing: got %v, want ErrCellNotFound", err)
 	}
 }
