@@ -3,7 +3,6 @@ package kernel
 import (
 	"context"
 	"errors"
-	"time"
 )
 
 // Sentinel errors for kernel I/O and lifecycle (errors.Is).
@@ -55,11 +54,6 @@ func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLev
 		detailLevel = 1
 	}
 
-	if !m.shellMu.TryLock() {
-		return InspectResult{Status: "busy", Found: false, DetailLevel: detailLevel}, nil
-	}
-	defer m.shellMu.Unlock()
-
 	req := Message{
 		Header: NewHeader(m.Session, "inspect_request"),
 		Content: map[string]any{
@@ -68,47 +62,14 @@ func (m *Manager) Inspect(ctx context.Context, code string, cursorPos, detailLev
 			"detail_level": detailLevel,
 		},
 	}
-	msgID := req.Header.MsgID
-	if err := m.Conn.SendShell(req); err != nil {
+	msg, err := m.shellRequest(ctx, req, "inspect_reply", ErrInspectTimeout)
+	if errors.Is(err, errShellBusy) {
+		return InspectResult{Status: "busy", Found: false, DetailLevel: detailLevel}, nil
+	}
+	if err != nil {
 		return InspectResult{}, err
 	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-		deadline = d
-	}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return InspectResult{}, err
-		}
-		remain := time.Until(deadline)
-		if remain <= 0 {
-			return InspectResult{}, ErrInspectTimeout
-		}
-		rctx, cancel := context.WithTimeout(ctx, remain)
-		msg, ch, err := m.Conn.recvEither(rctx)
-		cancel()
-		if err != nil {
-			if ctx.Err() != nil {
-				return InspectResult{}, ctx.Err()
-			}
-			if time.Now().After(deadline) {
-				return InspectResult{}, ErrInspectTimeout
-			}
-			continue
-		}
-		if ch != "shell" {
-			continue
-		}
-		if msg.Header.MsgType != "inspect_reply" {
-			continue
-		}
-		if msg.ParentHeader.MsgID != msgID {
-			continue
-		}
-		return parseInspectReply(msg.Content, detailLevel), nil
-	}
+	return parseInspectReply(msg.Content, detailLevel), nil
 }
 
 func parseInspectReply(content map[string]any, detailLevel int) InspectResult {
