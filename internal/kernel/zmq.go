@@ -36,6 +36,13 @@ func dialOpts() []zmq4.Option {
 	}
 }
 
+// dialFail closes the connection (best-effort) and returns a labeled error.
+// Used for partial-dial cleanup so each socket setup path is not a Close twin.
+func (c *Conn) dialFail(op string, err error) error {
+	_ = c.Close() // best-effort cleanup after partial dial
+	return fmt.Errorf("%s: %w", op, err)
+}
+
 // Dial opens sockets (IOPub first) and starts reader loops.
 func Dial(ctx context.Context, cf ConnectionFile, session string) (*Conn, error) {
 	c := &Conn{
@@ -52,45 +59,27 @@ func Dial(ctx context.Context, cf ConnectionFile, session string) (*Conn, error)
 
 	c.iopub = zmq4.NewSub(ctx, opts...)
 	if err := c.iopub.SetOption(zmq4.OptionSubscribe, ""); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("iopub subscribe: %w", err)
+		return nil, c.dialFail("iopub subscribe", err)
 	}
 	if err := c.iopub.Dial(cf.Endpoint(cf.IOPubPort)); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("iopub dial: %w", err)
+		return nil, c.dialFail("iopub dial", err)
 	}
 
 	c.shell = zmq4.NewDealer(ctx, opts...)
 	if err := c.shell.Dial(cf.Endpoint(cf.ShellPort)); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("shell dial: %w", err)
+		return nil, c.dialFail("shell dial", err)
 	}
 	c.control = zmq4.NewDealer(ctx, opts...)
 	if err := c.control.Dial(cf.Endpoint(cf.ControlPort)); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("control dial: %w", err)
+		return nil, c.dialFail("control dial", err)
 	}
 	c.stdin = zmq4.NewDealer(ctx, opts...)
 	if err := c.stdin.Dial(cf.Endpoint(cf.StdinPort)); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("stdin dial: %w", err)
+		return nil, c.dialFail("stdin dial", err)
 	}
 	c.hb = zmq4.NewReq(ctx, opts...)
 	if err := c.hb.Dial(cf.Endpoint(cf.HBPort)); err != nil {
-		if err := c.Close(); err != nil {
-			// best-effort
-		}
-		return nil, fmt.Errorf("hb dial: %w", err)
+		return nil, c.dialFail("hb dial", err)
 	}
 
 	go c.readLoop(rctx, c.shell, c.shellCh)
