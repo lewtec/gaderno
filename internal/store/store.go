@@ -45,7 +45,7 @@ func CleanRel(rel string) (string, error) {
 	}
 	// After leading-slash Clean, ".." path segments are gone. Reject any leftover
 	// segment (should not happen) without false-positive on names like "foo..bar".
-	for _, part := range strings.Split(rel, string(os.PathSeparator)) {
+	for part := range strings.SplitSeq(rel, string(os.PathSeparator)) {
 		if part == ".." {
 			return "", ErrPathEscapesRoot
 		}
