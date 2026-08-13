@@ -7,7 +7,7 @@ require (
 	github.com/go-zeromq/zmq4 v0.17.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/reearth/ygo v1.31.6
+	github.com/reearth/ygo v1.48.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 )
