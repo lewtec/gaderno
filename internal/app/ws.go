@@ -202,7 +202,7 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 		if ct == "" {
 			ct = "code"
 		}
-		id, err := hub.InsertCell(idx, ct)
+		id, err := hub.InsertCell(idx, ct, ctrl.Source)
 		if err != nil {
 			sendErr(client, err.Error())
 			return
@@ -246,6 +246,10 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			name = ctrl.Text
 		}
 		if err := hub.BindKernel(name); err != nil {
+			sendErr(client, err.Error())
+		}
+	case "exec.interrupt":
+		if err := hub.Interrupt(ctx); err != nil {
 			sendErr(client, err.Error())
 		}
 	case "exec.run":

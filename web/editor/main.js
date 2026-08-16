@@ -509,9 +509,18 @@ export function createCollabSession() {
       getSource(cellId) {
         return ydoc.getText(sourceKey(cellId)).toString();
       },
+      cursorPos(cellId) {
+        const v = editors.get(cellId);
+        if (!v) return 0;
+        return v.state.selection.main.head;
+      },
       focus(cellId) {
         const v = editors.get(cellId);
         if (v) v.focus();
+      },
+      blur(cellId) {
+        const v = editors.get(cellId);
+        if (v) v.contentDOM.blur();
       },
       remount(root) {
         return mountEditors(root);

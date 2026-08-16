@@ -331,12 +331,12 @@ func (h *Hub) persistKernelspecLocked(name string) error {
 }
 
 // InsertCell adds a cell and notifies clients to rebuild structure.
-func (h *Hub) InsertCell(index int, cellType string) (string, error) {
+func (h *Hub) InsertCell(index int, cellType, source string) (string, error) {
 	ct := document.CellType(cellType)
 	if ct == "" {
 		ct = document.CellCode
 	}
-	id, err := h.Doc.InsertCell(index, ct, "")
+	id, err := h.Doc.InsertCell(index, ct, source)
 	if err != nil {
 		return "", err
 	}
@@ -384,7 +384,11 @@ func (h *Hub) broadcastStructure() {
 // SetCellSource updates cell source in the CRDT and notifies other clients.
 // skipClient is the originator (they already have the text); empty = notify all.
 func (h *Hub) SetCellSource(cellID, source string, skipClient string) error {
-	if err := h.Doc.SetSourceServer(cellID, source); err != nil {
+	origin := crdt.OriginServer
+	if skipClient != "" {
+		origin = skipClient
+	}
+	if err := h.Doc.SetSourceAs(cellID, source, origin); err != nil {
 		return err
 	}
 	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
@@ -405,6 +409,17 @@ func (h *Hub) Complete(ctx context.Context, code string, cursorPos int) (kernel.
 		return kernel.CompleteResult{Status: "no_kernel", Matches: []string{}, CursorStart: cursorPos, CursorEnd: cursorPos}, nil
 	}
 	return k.Complete(ctx, code, cursorPos)
+}
+
+// Interrupt asks the live kernel to stop the current execute. No-op spawn.
+func (h *Hub) Interrupt(ctx context.Context) error {
+	h.mu.Lock()
+	k := h.kernel
+	h.mu.Unlock()
+	if k == nil {
+		return ErrKernelNotStarted
+	}
+	return k.Interrupt(ctx)
 }
 
 // Inspect asks the live kernel for hover docs / signature help at cursorPos.

@@ -345,9 +345,13 @@ summary.g-icon-btn::-webkit-details-marker {
   }
 }
 .cell-row:hover,
-.cell-row:focus-within {
+.cell-row:focus-within,
+.cell-row.is-selected {
   border-color: color-mix(in oklch, var(--color-primary) 28%, var(--color-base-300));
   background: color-mix(in oklch, var(--color-base-200) 70%, var(--color-base-100));
+}
+.cell-row.is-out-collapsed .out-block {
+  display: none;
 }
 .cell-row.is-running {
   background: color-mix(in oklch, var(--color-info) 8%, var(--color-base-200));

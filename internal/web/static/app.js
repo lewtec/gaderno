@@ -20,6 +20,12 @@ import { createCollabSession } from "./editor.js";
   const collab = createCollabSession();
   let api = null;
   let ws = null;
+  let selectedId = "";
+  let pendingAfterInsert = null;
+  const collapsed = new Set();
+  let cellClip = null;
+  let undoCell = null;
+  let chord = { key: "", at: 0 };
 
   function escapeHtml(s) {
     return String(s)
@@ -246,6 +252,12 @@ import { createCollabSession } from "./editor.js";
         collab.handleAwarenessB64(msg.update);
       } else if (msg.type === "notebook.structure") {
         applyStructure(msg.cells || []);
+      } else if (msg.type === "cell.inserted") {
+        if (msg.cell_id && pendingAfterInsert) {
+          const edit = pendingAfterInsert.edit;
+          pendingAfterInsert = null;
+          selectCell(msg.cell_id, edit);
+        }
       } else if (msg.type === "exec.clear") {
         const cell = document.querySelector(
           '.cell-row[data-cell-id="' + msg.cell_id + '"]'
@@ -605,7 +617,7 @@ import { createCollabSession } from "./editor.js";
       html +=
         '<button type="button" class="cell-play run" data-cell-id="' +
         id +
-        '" title="Run cell" aria-label="Run cell">' +
+        '" title="Run cell (Shift+Enter)" aria-label="Run cell">' +
         '<svg class="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>' +
         '<span class="loading loading-spinner loading-xs play-spin" hidden></span>' +
         "</button>" +
@@ -741,6 +753,7 @@ import { createCollabSession } from "./editor.js";
         '<button type="button" class="btn btn-ghost btn-sm gap-1" id="btn-first-md"><span aria-hidden="true">+</span> Markdown</button>' +
         "</div></div>";
       api = collab.mountEditors(root);
+      selectedId = "";
       return;
     }
 
@@ -792,6 +805,7 @@ import { createCollabSession } from "./editor.js";
     rebuildInsertGaps(root);
     api = collab.mountEditors(root);
     syncMarkdownPreviews(root);
+    paintSelection();
   }
 
   // Initial mount
@@ -818,8 +832,10 @@ import { createCollabSession } from "./editor.js";
     });
   }
 
-  function insertCell(type, index) {
-    sendJSON({ type: "cell.insert", text: type, index: index });
+  function insertCell(type, index, source) {
+    const msg = { type: "cell.insert", text: type, index: index };
+    if (source) msg.source = source;
+    sendJSON(msg);
   }
 
   function indexOfCell(id) {
@@ -829,22 +845,161 @@ import { createCollabSession } from "./editor.js";
     });
   }
 
-  document.addEventListener("click", function (e) {
-    const play = e.target.closest("button.cell-play, button.run");
+  function cellRows() {
+    return $all("#cells .cell-row");
+  }
+
+  function cellEl(id) {
+    if (!id) return null;
+    return document.querySelector('#cells .cell-row[data-cell-id="' + id + '"]');
+  }
+
+  function paintSelection() {
+    cellRows().forEach(function (el) {
+      const id = el.getAttribute("data-cell-id");
+      el.classList.toggle("is-selected", id === selectedId);
+      el.classList.toggle("is-out-collapsed", collapsed.has(id));
+    });
+    const el = cellEl(selectedId);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+
+  function selectCell(id, edit) {
+    selectedId = id || "";
+    paintSelection();
+    if (!edit || !selectedId) return;
+    const el = cellEl(selectedId);
+    if (!el) return;
+    if (el.getAttribute("data-cell-type") === "markdown") {
+      enterMarkdownEdit(el);
+    } else if (api) {
+      api.focus(selectedId);
+    }
+  }
+
+  function enterCommandMode() {
+    const el = cellEl(selectedId);
+    if (el && el.getAttribute("data-cell-type") === "markdown") {
+      exitMarkdownEdit(el);
+    }
+    if (api && selectedId) api.blur(selectedId);
+    const ae = document.activeElement;
+    if (ae && ae.blur) ae.blur();
+    paintSelection();
+  }
+
+  function runCell(id) {
+    if (!id || !ws || ws.readyState !== 1) {
+      setStatus("Not connected", "err");
+      return false;
+    }
+    const cell = cellEl(id);
+    if (cell && cell.getAttribute("data-cell-type") === "markdown") {
+      exitMarkdownEdit(cell);
+      return true;
+    }
+    const play = cell ? $(".cell-play", cell) : null;
     if (play) {
-      const id = play.dataset.cellId;
-      if (!id || !ws || ws.readyState !== 1) {
-        setStatus("Not connected", "err");
-        return;
-      }
       play.disabled = true;
       play.classList.add("is-running");
-      setStatus("Running", "run");
-      const source = flushSource(id);
-      const cell = play.closest(".cell-row");
-      if (cell) cell.classList.add("is-running");
-      if (cell) clearCellOutput(cell, true);
-      sendJSON({ type: "exec.run", cell_id: id, source: source });
+    }
+    setStatus("Running", "run");
+    const source = flushSource(id);
+    if (cell) {
+      cell.classList.add("is-running");
+      clearCellOutput(cell, true);
+    }
+    sendJSON({ type: "exec.run", cell_id: id, source: source });
+    return true;
+  }
+
+  function ensureSelected() {
+    if (selectedId && cellEl(selectedId)) return selectedId;
+    const rows = cellRows();
+    if (!rows.length) return "";
+    selectCell(rows[0].getAttribute("data-cell-id"), false);
+    return selectedId;
+  }
+
+  function runAndAdvance() {
+    const id = ensureSelected();
+    if (!id) return;
+    runCell(id);
+    const idx = indexOfCell(id);
+    const rows = cellRows();
+    if (idx >= 0 && idx < rows.length - 1) {
+      selectCell(rows[idx + 1].getAttribute("data-cell-id"), true);
+      return;
+    }
+    pendingAfterInsert = { edit: true };
+    insertCell("code", rows.length);
+  }
+
+  function runAndInsertBelow() {
+    const id = ensureSelected();
+    if (!id) return;
+    runCell(id);
+    const idx = indexOfCell(id);
+    pendingAfterInsert = { edit: true };
+    insertCell("code", idx >= 0 ? idx + 1 : cellRows().length);
+  }
+
+  function snapshotCell(id) {
+    const el = cellEl(id);
+    if (!el) return null;
+    return {
+      type: el.getAttribute("data-cell-type") || "code",
+      source: flushSource(id) || "",
+      index: indexOfCell(id),
+    };
+  }
+
+  function eatChord(letter) {
+    const now = Date.now();
+    if (chord.key === letter && now - chord.at < 500) {
+      chord = { key: "", at: 0 };
+      return true;
+    }
+    chord = { key: letter, at: now };
+    return false;
+  }
+
+  function typingTarget(el) {
+    if (!el || !el.closest) return false;
+    if (el.closest("input, textarea, select, [contenteditable='true']"))
+      return true;
+    if (el.closest("dialog[open]")) return true;
+    if (el.closest(".cm-editor")) return true;
+    return false;
+  }
+
+  function forceSave() {
+    closeMenus();
+    setStatus("Saving…", "run");
+    fetch("/api/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: path }),
+    })
+      .then(function (r) {
+        setStatus(
+          r.ok ? withKernel("Saved") : "Save failed",
+          r.ok ? "ok" : "err"
+        );
+        if (r.ok) scheduleLiveStatus(900);
+      })
+      .catch(function () {
+        setStatus("Save failed", "err");
+      });
+  }
+
+  document.addEventListener("click", function (e) {
+    const row = e.target.closest(".cell-row");
+    if (row) selectCell(row.getAttribute("data-cell-id"), false);
+
+    const play = e.target.closest("button.cell-play, button.run");
+    if (play) {
+      runCell(play.dataset.cellId);
       return;
     }
 
@@ -869,6 +1024,7 @@ import { createCollabSession } from "./editor.js";
       const typ = insertBtn.getAttribute("data-type") || "code";
       const gap = insertBtn.closest(".cell-insert");
       if (!gap) return;
+      pendingAfterInsert = { edit: true };
       if (gap.hasAttribute("data-insert-end")) {
         insertCell(typ, $all("#cells .cell-row").length);
       } else {
@@ -880,10 +1036,12 @@ import { createCollabSession } from "./editor.js";
     }
 
     if (e.target.closest("#btn-first-code")) {
+      pendingAfterInsert = { edit: true };
       insertCell("code", 0);
       return;
     }
     if (e.target.closest("#btn-first-md")) {
+      pendingAfterInsert = { edit: true };
       insertCell("markdown", 0);
       return;
     }
@@ -894,6 +1052,7 @@ import { createCollabSession } from "./editor.js";
       if (!id) return;
       if (!confirm("Delete this cell?")) return;
       closeMenus();
+      undoCell = snapshotCell(id);
       sendJSON({ type: "cell.delete", cell_id: id });
       return;
     }
@@ -931,6 +1090,203 @@ import { createCollabSession } from "./editor.js";
         if (host.hidden) return;
         exitMarkdownEdit(cell);
       }, 120);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      if (e.defaultPrevented || e.isComposing) return;
+      const typing = typingTarget(e.target);
+      const meta = e.metaKey || e.ctrlKey;
+      const key = e.key;
+
+      if (meta && (key === "s" || key === "S") && !e.altKey) {
+        e.preventDefault();
+        forceSave();
+        return;
+      }
+      if (key === "Enter" && (e.shiftKey || e.altKey || meta)) {
+        e.preventDefault();
+        if (e.altKey) runAndInsertBelow();
+        else if (e.shiftKey) runAndAdvance();
+        else runCell(ensureSelected());
+        return;
+      }
+      if (key === "Escape") {
+        if (typing || selectedId) {
+          e.preventDefault();
+          enterCommandMode();
+        }
+        return;
+      }
+      if (key === "Enter" && !typing) {
+        e.preventDefault();
+        if (ensureSelected()) selectCell(selectedId, true);
+        return;
+      }
+      if (meta && e.shiftKey && (key === "-" || key === "_")) {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (!id || !api) return;
+        const src = flushSource(id) || "";
+        const pos = api.cursorPos(id);
+        const at = Math.max(0, Math.min(pos, src.length));
+        const el = cellEl(id);
+        const typ =
+          el && el.getAttribute("data-cell-type") === "markdown"
+            ? "markdown"
+            : "code";
+        sendJSON({
+          type: "cell.set_source",
+          cell_id: id,
+          source: src.slice(0, at),
+        });
+        pendingAfterInsert = { edit: true };
+        insertCell(typ, indexOfCell(id) + 1, src.slice(at));
+        return;
+      }
+
+      if (typing) return;
+      if (e.altKey || (meta && key !== "-" && key !== "_")) return;
+
+      if ((key === "ArrowUp" || key === "k" || key === "K") && !e.shiftKey) {
+        e.preventDefault();
+        const rows = cellRows();
+        const idx = indexOfCell(ensureSelected());
+        if (idx > 0) selectCell(rows[idx - 1].getAttribute("data-cell-id"), false);
+        return;
+      }
+      if ((key === "ArrowDown" || key === "j" || key === "J") && !e.shiftKey) {
+        e.preventDefault();
+        const rows = cellRows();
+        const idx = indexOfCell(ensureSelected());
+        if (idx >= 0 && idx < rows.length - 1)
+          selectCell(rows[idx + 1].getAttribute("data-cell-id"), false);
+        return;
+      }
+      if (key === "a" || key === "A") {
+        e.preventDefault();
+        const id = ensureSelected();
+        const idx = indexOfCell(id);
+        pendingAfterInsert = { edit: true };
+        insertCell("code", idx >= 0 ? idx : 0);
+        return;
+      }
+      if (key === "b" || key === "B") {
+        if (e.shiftKey) return;
+        e.preventDefault();
+        const id = ensureSelected();
+        const idx = indexOfCell(id);
+        pendingAfterInsert = { edit: true };
+        insertCell("code", idx >= 0 ? idx + 1 : cellRows().length);
+        return;
+      }
+      if ((key === "m" || key === "M") && e.shiftKey) {
+        e.preventDefault();
+        const id = ensureSelected();
+        const idx = indexOfCell(id);
+        const rows = cellRows();
+        if (!id || idx < 0 || idx >= rows.length - 1) return;
+        const next = rows[idx + 1].getAttribute("data-cell-id");
+        const joined =
+          (flushSource(id) || "") + "\n\n" + (flushSource(next) || "");
+        sendJSON({ type: "cell.set_source", cell_id: id, source: joined });
+        sendJSON({ type: "cell.delete", cell_id: next });
+        return;
+      }
+      if (key === "m" || key === "M") {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (id) sendJSON({ type: "cell.set_type", cell_id: id, text: "markdown" });
+        return;
+      }
+      if (key === "y" || key === "Y") {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (id) sendJSON({ type: "cell.set_type", cell_id: id, text: "code" });
+        return;
+      }
+      if (key === "d" || key === "D") {
+        e.preventDefault();
+        if (!eatChord("d")) return;
+        const id = ensureSelected();
+        if (!id) return;
+        undoCell = snapshotCell(id);
+        const idx = indexOfCell(id);
+        const rows = cellRows();
+        const next =
+          idx < rows.length - 1
+            ? rows[idx + 1].getAttribute("data-cell-id")
+            : idx > 0
+              ? rows[idx - 1].getAttribute("data-cell-id")
+              : "";
+        sendJSON({ type: "cell.delete", cell_id: id });
+        selectedId = next;
+        return;
+      }
+      if (key === "x" || key === "X") {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (!id) return;
+        cellClip = snapshotCell(id);
+        undoCell = cellClip;
+        const idx = indexOfCell(id);
+        const rows = cellRows();
+        const next =
+          idx < rows.length - 1
+            ? rows[idx + 1].getAttribute("data-cell-id")
+            : idx > 0
+              ? rows[idx - 1].getAttribute("data-cell-id")
+              : "";
+        sendJSON({ type: "cell.delete", cell_id: id });
+        selectedId = next;
+        return;
+      }
+      if (key === "c" || key === "C") {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (id) cellClip = snapshotCell(id);
+        return;
+      }
+      if (key === "v" || key === "V") {
+        e.preventDefault();
+        if (!cellClip) return;
+        const id = ensureSelected();
+        const idx = indexOfCell(id);
+        pendingAfterInsert = { edit: true };
+        insertCell(
+          cellClip.type,
+          idx >= 0 ? idx + 1 : cellRows().length,
+          cellClip.source
+        );
+        return;
+      }
+      if (key === "z" || key === "Z") {
+        e.preventDefault();
+        if (!undoCell) return;
+        const u = undoCell;
+        undoCell = null;
+        pendingAfterInsert = { edit: false };
+        insertCell(u.type, u.index >= 0 ? u.index : cellRows().length, u.source);
+        return;
+      }
+      if (key === "o" || key === "O") {
+        e.preventDefault();
+        const id = ensureSelected();
+        if (!id) return;
+        if (collapsed.has(id)) collapsed.delete(id);
+        else collapsed.add(id);
+        paintSelection();
+        return;
+      }
+      if (key === "i" || key === "I") {
+        e.preventDefault();
+        if (!eatChord("i")) return;
+        sendJSON({ type: "exec.interrupt" });
+        return;
+      }
     },
     true
   );
@@ -1156,23 +1512,7 @@ import { createCollabSession } from "./editor.js";
   const menuForceSave = $("#menu-force-save");
   if (menuForceSave) {
     menuForceSave.addEventListener("click", function () {
-      closeMenus();
-      setStatus("Saving…", "run");
-      fetch("/api/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: path }),
-      })
-        .then(function (r) {
-          setStatus(
-            r.ok ? withKernel("Saved") : "Save failed",
-            r.ok ? "ok" : "err"
-          );
-          if (r.ok) scheduleLiveStatus(900);
-        })
-        .catch(function () {
-          setStatus("Save failed", "err");
-        });
+      forceSave();
     });
   }
 

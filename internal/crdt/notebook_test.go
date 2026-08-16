@@ -118,6 +118,12 @@ func TestSetSourceServer(t *testing.T) {
 	if d.Source(id) != "hello" {
 		t.Fatalf("source %q", d.Source(id))
 	}
+	if err := d.SetSourceServer(id, "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if d.Source(id) != "hello" {
+		t.Fatalf("source after noop %q", d.Source(id))
+	}
 }
 
 func TestClearAndApplyCellExecution(t *testing.T) {

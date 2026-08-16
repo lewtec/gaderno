@@ -266,7 +266,7 @@ func cellRow(c CellView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" title=\"Run cell\" aria-label=\"Run cell\"><svg class=\"play-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\"></path></svg> <span class=\"loading loading-spinner loading-xs play-spin\" hidden></span></button> <span class=\"cell-exec-count font-code tabular\" data-count></span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" title=\"Run cell (Shift+Enter)\" aria-label=\"Run cell\"><svg class=\"play-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\"></path></svg> <span class=\"loading loading-spinner loading-xs play-spin\" hidden></span></button> <span class=\"cell-exec-count font-code tabular\" data-count></span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/lucasew/gaderno/internal/document"
@@ -45,6 +46,23 @@ func TestOpenSave(t *testing.T) {
 	}
 	if got.Cells[0].SourceString() != "x = 2" {
 		t.Fatalf("%q", got.Cells[0].SourceString())
+	}
+}
+
+func TestInterruptNoKernel(t *testing.T) {
+	dir := t.TempDir()
+	st := store.New(dir)
+	nb := document.NewEmpty()
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close(t.Context())
+	if err := h.Interrupt(t.Context()); !errors.Is(err, ErrKernelNotStarted) {
+		t.Fatalf("Interrupt() err = %v, want ErrKernelNotStarted", err)
 	}
 }
 

@@ -191,8 +191,21 @@ func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 
 // SetSourceServer replaces cell source (server-side writer). Prefer yjs collab for live typing.
 func (n *NotebookDoc) SetSourceServer(cellID, source string) error {
+	return n.SetSourceAs(cellID, source, OriginServer)
+}
+
+// SetSourceAs is SetSourceServer with a Yjs origin. Use the originating
+// client id so that peer is not sent a full-text rewrite (which resets
+// the CodeMirror cursor). No-op when the text already matches.
+func (n *NotebookDoc) SetSourceAs(cellID, source, origin string) error {
 	if cellID == "" {
 		return ErrEmptyCellID
+	}
+	if n.Source(cellID) == source {
+		return nil
+	}
+	if origin == "" {
+		origin = OriginServer
 	}
 	st := n.Doc.GetText(sourceKey(cellID))
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -203,7 +216,7 @@ func (n *NotebookDoc) SetSourceServer(cellID, source string) error {
 			st.Insert(txn, 0, source, nil)
 		}
 		return nil
-	}, OriginServer)
+	}, origin)
 }
 
 // InsertCell inserts a cell at index (0..len). Returns new cell id.
