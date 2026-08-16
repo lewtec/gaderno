@@ -244,7 +244,6 @@ import { createCollabSession } from "./editor.js";
         const dn = getDisplayName();
         if (dn && typeof collab.setUserName === "function") collab.setUserName(dn);
         setLiveStatus("ok");
-        applyKernelStatus(kernelStatus);
         return;
       }
       if (!sessionReady) return;
@@ -1424,13 +1423,12 @@ import { createCollabSession } from "./editor.js";
   const kernelFilter = document.getElementById("kernel-filter");
   const kernelDialogHint = document.getElementById("kernel-dialog-hint");
   let kernelStatus = {
-    needs_kernel: true,
+    needs_kernel: false,
     bound_name: "",
     display_name: "",
-    phase: "needs_kernel",
+    phase: "",
     running: false,
   };
-  let autoOpenedChooser = false;
   let kernelCatalog = null;
 
   function applyKernelStatus(st) {
@@ -1448,10 +1446,8 @@ import { createCollabSession } from "./editor.js";
         setStatus(withKernel("Kernel error"), "err");
       else setLiveStatus("ok");
     }
-    if (needs && kernelDialog && !kernelDialog.open && !autoOpenedChooser) {
-      autoOpenedChooser = true;
-      openKernelChooser();
-    }
+    // Chooser stays explicit (session button / avatar). Auto-open only on
+    // kernel.needs_pick (play blocked). A defined kernelspec must not modal.
   }
 
   function renderKernelList(filter) {

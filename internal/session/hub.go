@@ -226,6 +226,9 @@ func (h *Hub) BindKernel(name string) error {
 		cancel()
 	}
 	h.broadcastKernelStatus(st)
+	if err := h.persistKernelspec(name); err != nil {
+		// best-effort; bind still holds for this hub
+	}
 	return nil
 }
 
@@ -293,17 +296,18 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 	}
 	h.kernel = m
 	h.phase = PhaseReady
-	// persist kernelspec into notebook only after successful spawn
-	if err := h.persistKernelspecLocked(bound); err != nil {
-		// best-effort
-	}
 	st = h.statusLocked()
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)
+	// After unlock: write kernelspec into CRDT then disk (SPEC: persist only
+	// after successful spawn). Must not hold h.mu — SetMetadata triggers OnUpdate → scheduleSave.
+	if err := h.persistKernelspec(bound); err != nil {
+		// best-effort
+	}
 	return nil
 }
 
-func (h *Hub) persistKernelspecLocked(name string) error {
+func (h *Hub) persistKernelspec(name string) error {
 	cat, err := kernel.LoadCatalog()
 	if err != nil {
 		return err
@@ -312,22 +316,20 @@ func (h *Hub) persistKernelspecLocked(name string) error {
 	if err != nil {
 		return err
 	}
-	// Project notebook, set metadata, save via store (hold lock — caller holds it)
-	nb := h.Doc.ProjectNotebook()
-	if nb.Metadata == nil {
-		nb.Metadata = map[string]any{}
-	}
-	nb.Metadata["kernelspec"] = map[string]any{
+	ks := map[string]any{
 		"name":         spec.Name,
 		"display_name": spec.Spec.DisplayName,
 		"language":     spec.Spec.Language,
 	}
-	if spec.Spec.Language != "" {
-		nb.Metadata["language_info"] = map[string]any{"name": spec.Spec.Language}
+	if err := h.Doc.SetMetadata("kernelspec", ks); err != nil {
+		return err
 	}
-	// Write through store so next open binds correctly.
-	// Also re-load into CRDT meta is best-effort; file is source of truth on reopen.
-	return h.store.Save(h.bg, h.Path, nb)
+	if spec.Spec.Language != "" {
+		if err := h.Doc.SetMetadata("language_info", map[string]any{"name": spec.Spec.Language}); err != nil {
+			return err
+		}
+	}
+	return h.store.Save(h.bg, h.Path, h.Doc.ProjectNotebook())
 }
 
 // InsertCell adds a cell and notifies clients to rebuild structure.

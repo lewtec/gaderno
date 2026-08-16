@@ -49,6 +49,38 @@ func TestOpenSave(t *testing.T) {
 	}
 }
 
+func TestKernelspecSurvivesProjectedSave(t *testing.T) {
+	dir := t.TempDir()
+	st := store.New(dir)
+	nb := document.NewEmpty()
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close(t.Context())
+	if err := h.Doc.SetMetadata("kernelspec", map[string]any{
+		"name":         "uv-cpython-3.10.15",
+		"display_name": "uv · cpython-3.10.15",
+		"language":     "python",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Save(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.Load(t.Context(), "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ks, ok := got.Metadata["kernelspec"].(map[string]any)
+	if !ok || ks["name"] != "uv-cpython-3.10.15" {
+		t.Fatalf("kernelspec after Save = %#v", got.Metadata["kernelspec"])
+	}
+}
+
 func TestInterruptNoKernel(t *testing.T) {
 	dir := t.TempDir()
 	st := store.New(dir)

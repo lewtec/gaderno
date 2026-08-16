@@ -84,6 +84,22 @@ func TestLoadProjectPreservesOutputsAndMeta(t *testing.T) {
 	if _, hasJSON := out.Metadata["kernelspec_json"]; hasJSON {
 		t.Fatal("projected metadata still has kernelspec_json")
 	}
+
+	if err := d.SetMetadata("kernelspec", map[string]any{
+		"name":         "uv-cpython-3.10.15",
+		"display_name": "uv · cpython-3.10.15",
+		"language":     "python",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out = d.ProjectNotebook()
+	ks, ok = out.Metadata["kernelspec"].(map[string]any)
+	if !ok || ks["name"] != "uv-cpython-3.10.15" {
+		t.Fatalf("after SetMetadata kernelspec = %#v", out.Metadata["kernelspec"])
+	}
+	if _, hasJSON := out.Metadata["kernelspec_json"]; hasJSON {
+		t.Fatal("SetMetadata left kernelspec_json on projection")
+	}
 	li, ok := out.Metadata["language_info"].(map[string]any)
 	if !ok || li["name"] != "python" {
 		t.Fatalf("language_info = %#v", out.Metadata["language_info"])

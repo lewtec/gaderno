@@ -122,7 +122,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 | 32 | **Lazy idempotent spawn:** process starts on **first Run** (or equivalent exec) after a kernelspec is bound; open/chooser confirm only bind. Concurrent first-runs share one spawn. |
 | 33 | **`NeedsKernel` blocks exec only** — edit, chat, save, awareness still work. Multi-client: session-level chooser; first valid pick wins; all clients see the same bound name. |
 | 34 | **Switch kernel:** kill old process if any; clear exec queue; rebind; next Run spawns the new spec (lazy). |
-| 35 | **Persist kernelspec into ipynb only after successful spawn** (not on bind alone). |
+| 35 | **Persist kernelspec into CRDT + ipynb on bind** (the name the user picked). Spawn still lazy. |
 | 36 | **Session identity fence:** each live hub has a stable **`session_id`** (UUID minted at hub open). It is **not** the Jupyter ZMQ messaging session and does **not** change on kernel restart/rebind. It changes only when the hub is newly created (process start, hub eviction/reopen). |
 | 37 | **Client session check:** on WS connect the server sends **only** `hello { session_id, client_id }` first (no CRDT yet). The client asks: *“am I connecting to the same session I was in before?”* Remember last `session_id` per notebook path in **`sessionStorage`** (per-tab). Same id (or first visit) → client sends `hello.ack { session_id }`, **then** attaches Yjs and the server may apply sync / control from that peer. Different id → write the new id, close socket, **`location.reload()`** — **never** sync first. Server **rejects** binary CRDT and control from peers that have not acked hello (blocks a reconnecting tab from poisoning a recreated hub with an old Y.Doc). |
 

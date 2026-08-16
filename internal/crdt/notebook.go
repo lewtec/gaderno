@@ -189,6 +189,23 @@ func (n *NotebookDoc) ProjectNotebook() *document.Notebook {
 	return nb
 }
 
+// SetMetadata sets one notebook metadata key (nested values go through flattenMeta).
+func (n *NotebookDoc) SetMetadata(key string, value any) error {
+	if key == "" {
+		return errors.New("empty metadata key")
+	}
+	flat := flattenMeta(map[string]any{key: value})
+	meta := n.Doc.GetMap(RootMeta)
+	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
+		// Drop the live key so a nested value does not leave a stale scalar.
+		meta.Delete(txn, key)
+		for k, v := range flat {
+			meta.Set(txn, k, v)
+		}
+		return nil
+	}, OriginServer)
+}
+
 // SetSourceServer replaces cell source (server-side writer). Prefer yjs collab for live typing.
 func (n *NotebookDoc) SetSourceServer(cellID, source string) error {
 	return n.SetSourceAs(cellID, source, OriginServer)
