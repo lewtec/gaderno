@@ -583,6 +583,81 @@ import { createCollabSession } from "./editor.js";
     out.appendChild(wrap);
   }
 
+  function coerceText(t) {
+    if (t == null) return "";
+    if (typeof t === "string") return t;
+    if (Array.isArray(t)) return t.join("");
+    return String(t);
+  }
+
+  function paintSavedOutputs(c) {
+    if (!c || !c.id) return;
+    const cell = document.querySelector(
+      '#cells .cell-row[data-cell-id="' + c.id + '"]'
+    );
+    if (!cell || cell.getAttribute("data-cell-type") !== "code") return;
+    if (cell.classList.contains("is-running")) return;
+    const count = c.execution_count;
+    const countEl = $(".cell-exec-count", cell);
+    if (countEl && count != null && count !== "") {
+      countEl.textContent = "[" + count + "]";
+      countEl.setAttribute("data-count", String(count));
+    }
+    const outs = c.outputs;
+    if (!outs || !outs.length) return;
+    clearCellOutput(cell, false);
+    cell._streamBuf = { stdout: "", stderr: "" };
+    outs.forEach(function (o) {
+      if (!o) return;
+      const ot = o.output_type;
+      if (ot === "stream") {
+        const name = o.name === "stderr" ? "stderr" : "stdout";
+        cell._streamBuf[name] += coerceText(o.text);
+        return;
+      }
+      if (ot === "error") {
+        renderStreams(cell, false);
+        let errText = "";
+        if (Array.isArray(o.traceback) && o.traceback.length) {
+          errText = o.traceback.join("\n");
+        } else {
+          errText = (o.ename || "Error") + ": " + (o.evalue || "");
+        }
+        setErrorLine(cell, errText);
+        cell.classList.add("is-error");
+        const out = ensureOutBlock(cell);
+        if (out) out.classList.add("is-error");
+        return;
+      }
+      renderStreams(cell, false);
+      appendDisplay(cell, {
+        output_type: ot || "display_data",
+        data: o.data || {},
+        metadata: o.metadata,
+        transient: o.transient,
+      });
+    });
+    renderStreams(cell, false);
+    const out = ensureOutBlock(cell);
+    if (out && !out.children.length) out.hidden = true;
+    else if (out) out.classList.remove("is-running");
+  }
+
+  function hydrateSavedOutputs(root) {
+    $all(".cell-result-json", root || document).forEach(function (el) {
+      const id = el.getAttribute("data-cell-id");
+      if (!id) return;
+      try {
+        const data = JSON.parse(el.textContent || "{}");
+        paintSavedOutputs({
+          id: id,
+          outputs: data.outputs,
+          execution_count: data.execution_count,
+        });
+      } catch (_) {}
+    });
+  }
+
   function insertGapHTML(beforeId) {
     const attr = beforeId
       ? ' data-insert-before="' + escapeHtml(beforeId) + '"'
@@ -805,12 +880,14 @@ import { createCollabSession } from "./editor.js";
     rebuildInsertGaps(root);
     api = collab.mountEditors(root);
     syncMarkdownPreviews(root);
+    unique.forEach(paintSavedOutputs);
     paintSelection();
   }
 
   // Initial mount
   api = collab.mountEditors(document.getElementById("cells") || document);
   syncMarkdownPreviews(document.getElementById("cells"));
+  hydrateSavedOutputs(document.getElementById("cells"));
 
   // Seed markdown previews from SSR JSON if collab not yet filled
   $all(".cell-row[data-cell-type='markdown']").forEach(function (cell) {

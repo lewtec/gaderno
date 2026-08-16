@@ -381,9 +381,11 @@ func (n *NotebookDoc) ApplyCellExecution(cellID string, outputs []document.Outpu
 
 // CellSnapshot is a JSON-friendly cell for structure broadcasts / UI rebuild.
 type CellSnapshot struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Source string `json:"source"`
+	ID             string            `json:"id"`
+	Type           string            `json:"type"`
+	Source         string            `json:"source"`
+	Outputs        []document.Output `json:"outputs,omitempty"`
+	ExecutionCount *int              `json:"execution_count,omitempty"`
 }
 
 // SnapshotCells returns ordered cells for the UI.
@@ -391,11 +393,16 @@ func (n *NotebookDoc) SnapshotCells() []CellSnapshot {
 	nb := n.ProjectNotebook()
 	out := make([]CellSnapshot, 0, len(nb.Cells))
 	for _, c := range nb.Cells {
-		out = append(out, CellSnapshot{
+		snap := CellSnapshot{
 			ID:     c.ID,
 			Type:   string(c.CellType),
 			Source: c.SourceString(),
-		})
+		}
+		if c.CellType == document.CellCode {
+			snap.Outputs = c.Outputs
+			snap.ExecutionCount = c.ExecutionCount
+		}
+		out = append(out, snap)
 	}
 	return out
 }

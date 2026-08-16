@@ -25,13 +25,18 @@ func TestNotebookRenderJSON(t *testing.T) {
 		Path:       "demo.ipynb",
 		PathJSON:   `"demo.ipynb"`,
 		KernelJSON: `"python3"`,
-		Cells:      []CellView{{Type: "code", ID: "c1", SourceJSON: `"print(1)"`}},
+		Cells: []CellView{{
+			Type:       "code",
+			ID:         "c1",
+			SourceJSON: `"print(1)"`,
+			ResultJSON: `{"outputs":[{"output_type":"stream","name":"stdout","text":"1\n"}],"execution_count":1}`,
+		}},
 	}).Render(t.Context(), &buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `/static/app.js`, `"python3"`, `print(1)`} {
+	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `cell-result-json`, `/static/app.js`, `"python3"`, `print(1)`, `"stdout"`} {
 		if !strings.Contains(out, s) {
 			t.Errorf("missing %q", s)
 		}

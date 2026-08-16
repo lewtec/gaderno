@@ -38,11 +38,24 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 				http.Error(w, "render failed", http.StatusInternalServerError)
 				return
 			}
-			cells = append(cells, pages.CellView{
+			cv := pages.CellView{
 				Type:       string(c.CellType),
 				ID:         c.ID,
 				SourceJSON: string(raw),
-			})
+			}
+			if c.CellType == document.CellCode {
+				result, err := json.Marshal(map[string]any{
+					"outputs":         c.Outputs,
+					"execution_count": c.ExecutionCount,
+				})
+				if err != nil {
+					logger.Error("marshal cell outputs", "err", err)
+					http.Error(w, "render failed", http.StatusInternalServerError)
+					return
+				}
+				cv.ResultJSON = string(result)
+			}
+			cells = append(cells, cv)
 		}
 		pathJSON, err := json.Marshal(path)
 		if err != nil {

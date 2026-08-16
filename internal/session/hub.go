@@ -641,6 +641,20 @@ func (h *Hub) broadcastKernelStatus(st KernelStatus) {
 	}), "")
 }
 
+// SendStructure sends the current cell list (including outputs) to one client.
+func (h *Hub) SendStructure(c *Client) {
+	if c == nil {
+		return
+	}
+	select {
+	case c.Out <- Outbound{Data: jsonutil.Bytes(map[string]any{
+		"type":  "notebook.structure",
+		"cells": h.Doc.SnapshotCells(),
+	})}:
+	default:
+	}
+}
+
 // SendKernelStatus sends status to one client (on join).
 func (h *Hub) SendKernelStatus(c *Client) {
 	st := h.Status()

@@ -167,6 +167,13 @@ func TestClearAndApplyCellExecution(t *testing.T) {
 	if got := out.Cells[0].Outputs[0].Text.String(); got != "42\n" {
 		t.Fatalf("stream %q", got)
 	}
+	snap := d.SnapshotCells()
+	if len(snap) != 1 || snap[0].ExecutionCount == nil || *snap[0].ExecutionCount != 4 {
+		t.Fatalf("snapshot exec %+v", snap)
+	}
+	if len(snap[0].Outputs) != 2 || snap[0].Outputs[0].OutputType != "stream" {
+		t.Fatalf("snapshot outputs %#v", snap[0].Outputs)
+	}
 }
 
 func TestApplyCellExecutionError(t *testing.T) {

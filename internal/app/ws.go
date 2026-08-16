@@ -136,6 +136,7 @@ func registerWS(mux *http.ServeMux, reg *session.Registry, logger *slog.Logger) 
 						continue
 					}
 					hub.SendKernelStatus(client)
+					hub.SendStructure(client)
 					select {
 					case client.Out <- session.Outbound{Binary: true, Data: hub.EncodeSyncStep1()}:
 					default:

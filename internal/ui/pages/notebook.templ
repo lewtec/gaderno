@@ -6,6 +6,7 @@ type CellView struct {
 	Type       string
 	ID         string
 	SourceJSON string // json.Marshal of source; safe for embedding
+	ResultJSON string // json.Marshal of {outputs, execution_count}; code cells
 }
 
 type NotebookData struct {
@@ -197,6 +198,9 @@ templ cellRow(c CellView) {
 				<div class="md-preview" tabindex="0" role="button" aria-label="Edit markdown"></div>
 			}
 			@cellSourceJSON(c.ID, c.SourceJSON)
+			if c.ResultJSON != "" {
+				@cellResultJSON(c.ID, c.ResultJSON)
+			}
 			<div
 				class={ cmHostClass(c.Type) }
 				data-gaderno-editor

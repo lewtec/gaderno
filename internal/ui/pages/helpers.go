@@ -40,6 +40,16 @@ func cellSourceJSON(cellID, json string) templ.Component {
 	})
 }
 
+// cellResultJSON emits saved outputs + execution_count for first paint.
+func cellResultJSON(cellID, json string) templ.Component {
+	return writeComponent(func(w io.Writer) error {
+		_, err := fmt.Fprintf(w,
+			`<script type="application/json" class="cell-result-json" data-cell-id="%s">%s</script>`,
+			templ.EscapeString(cellID), json)
+		return err
+	})
+}
+
 // gadernoBoot emits window.__GADERNO__ from json.Marshal'd path and kernel.
 func gadernoBoot(pathJSON, kernelJSON string) templ.Component {
 	return writeComponent(func(w io.Writer) error {
