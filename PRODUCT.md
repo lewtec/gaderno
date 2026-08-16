@@ -29,6 +29,6 @@ Quiet · Spacious · Polished · Quiet delight (cobalt signal; Go **G** mark as 
 ## Design principles
 1. Cells and outputs first — chrome stays thin and icon-first.
 2. Space for reading and tapping; not a marketing landing page.
-3. Explicit controls over hotkeys (v1).
+3. Explicit controls stay first-class (play, insert gaps, menus). Keyboard is a second-class accelerator (Jupyter command/edit map), not a replacement.
 4. Trust: clear run / sync / kernel state; no fake sandbox cues.
 5. Mobile edit+run works; kernel/export/theme progressive via session + avatar.

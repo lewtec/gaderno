@@ -60,7 +60,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 - JupyterHub / K8s control plane / Enterprise Gateway clone.
 - Reactive notebook semantics (Observable/Pluto).
 - Pixel-perfect JupyterLab clone or extension marketplace.
-- Custom keyboard shortcut schemes (Shift-Enter run maps, vim mode, command palette). v1 is **mouse/button + basic focus** only.
+- Command palette, vim mode, user-customizable keymaps, multi-select cells. Play/gutter/menus stay; keyboard is the Jupyter command/edit layer in **Keyboard UX** below.
 
 ### Later (do not paint into a corner)
 
@@ -68,6 +68,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 - Optional durable CRDT snapshot or history.
 - Container/bubblewrap kernel sandbox.
 - Stdin UI, completion, inspect, widgets.
+- Command palette, vim mode, user-customizable keymaps.
 - Disk-flushed status distinct from server-ack.
 
 ---
@@ -108,7 +109,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 | 48 | **Per-cell chrome:** idle cells show content (+ play for code). Type switch, move, delete live in a cell overflow menu (and/or selection), not permanent Code/Markdown tabs on every row. |
 | 20 | **Large outputs (v1):** cap + truncate only; no blob store. Big/binary plumbing later. |
 | 21 | **Structure/authority:** anyone may propose any doc change; **server may reject** (drop/not relay, error to originator). |
-| 22 | **Keyboard UX (v1):** no custom hotkey scheme; at most basic focusable controls (tab order, buttons, native focus). |
+| 22 | **Keyboard UX:** explicit controls stay first-class (play, `+` gaps, cell menu). Jupyter command/edit keys are second-class accelerators (table in **Keyboard UX**). No palette, vim, or user-customizable maps. `I I` interrupt needs a WS hook over existing `Manager.Interrupt`. |
 | 23 | **CLI:** Cobra + Viper; room to grow (`serve`, `version` now). **No config file.** Flags override env. Env prefix `GADERNO_`. |
 | 24 | **uv synthetic kernels (MVP):** optional; if `uv` missing or `uv python list` fails, omit the **uv** picker group. Never hard-require `uv` to serve. |
 | 25 | **uv catalog:** on first need, `sync.Once` runs `uv python list`; **dedupe first-column keys**; **no kind filter** (CPython/PyPy/Graal/freethreaded/…). Process-lifetime cache (no mid-run refresh in v1). |
@@ -593,8 +594,47 @@ type NotebookStore interface {
 - Stream coalesce: first chunk ASAP; later chunks ≤33ms coalesce; never block IOPub on WS.
 - **Markdown cells:** **preview-first** — unfocused shows server-sanitized HTML preview (plain-text fallback); click enters CodeMirror on `Y.Text`; blur/click-out returns to preview. No always-on split pane; no permanent Preview/Edit toggle chrome.
 - **Code cells:** play control in the gutter runs the cell; execution_count is shown near play when set.
-- **Keyboard:** no gaderno hotkey layer in v1. Run/interrupt/add-cell are **explicit controls** (play, gap `+`, menus). Rely on browser/CodeMirror defaults only where unavoidable; do not build a shortcut map or command palette. Controls should be focusable for basic accessibility.
+- **Keyboard:** see **Keyboard UX** (decision 22). Controls stay focusable.
 - **Layout chrome:** see decisions 38–48 (icon shell, session→kernel, chat panel, insert gaps).
+
+### Keyboard UX
+
+Two modes, Jupyter-shaped. **Edit:** focus is in CodeMirror (markdown preview hidden). **Command:** a cell is selected, editor is blurred (markdown back to preview). `Esc` / `Enter` switch.
+
+Explicit controls stay first-class: gutter play, insert gaps, cell menu, avatar force-save. Keys are accelerators for the same actions, not a second UI. A user who never learns a shortcut must still complete every task.
+
+Do not ship: command palette, vim, user-customizable keymaps, multi-cell select, `00` kernel restart (picker stays a click), heading rewrite `1`–`6` (fights Yjs source), line-number toggle, extra find chrome (CodeMirror’s own), workspace `G` (would collide if command-mode `G` is added later).
+
+Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
+
+**Always (edit or command)**
+
+| Key | Action |
+|-----|--------|
+| `Shift+Enter` | Run selected cell; select next; if last cell, insert a code cell below and select it |
+| `Ctrl+Enter` / `Cmd+Enter` | Run selected cell; stay |
+| `Alt+Enter` | Run selected cell; insert a code cell below; select the new cell |
+| `Esc` | Command mode (blur editor; markdown returns to preview) |
+| `Enter` | Edit mode (markdown opens CodeMirror) |
+| `Ctrl+S` / `Cmd+S` | Force save (same as avatar **Force save**) |
+
+**Command mode only** (ignore these while the event target is an editor, input, or dialog)
+
+| Key | Action |
+|-----|--------|
+| `↑` / `K` | Select previous cell |
+| `↓` / `J` | Select next cell |
+| `A` | Insert code cell above |
+| `B` | Insert code cell below |
+| `M` | Set selected cell type to markdown |
+| `Y` | Set selected cell type to code |
+| `D D` | Delete selected cell (no `confirm()`; chord within ~500ms) |
+| `X` / `C` / `V` | Cut / copy / paste cell (this-tab clipboard: type + source) |
+| `Z` | Undelete last cut/deleted cell (one-shot this-tab buffer) |
+| `Shift+M` | Merge selected cell with the cell below |
+| `Ctrl+Shift+-` | Split selected cell at the editor cursor |
+| `O` | Collapse / show this cell’s output |
+| `I I` | Interrupt the running kernel (chord). Requires a WS control message over existing `Manager.Interrupt` (not wired today). |
 
 ### 10. Latency targets
 
@@ -782,7 +822,7 @@ Large outputs: cap+truncate. Structure: anyone proposes; server may reject.
 18. **Markdown cells:** toggle edit (CM) ↔ server-sanitized HTML preview.
 19. **Large outputs:** v1 = cap and truncate only; blob system later.
 20. **Doc mutations:** everyone may propose any change; **server may reject** (outputs/exec fields always rejected from clients).
-21. **No custom hotkeys in v1** — buttons and basic focusable controls only (native tab/focus).
+21. **Keyboard:** explicit controls first-class; Jupyter command/edit keys as accelerators (**Keyboard UX**). No palette / vim / custom maps.
 22. **CLI: Cobra + Viper** — flags override env; no config file; `GADERNO_` env prefix.
 
 ---
