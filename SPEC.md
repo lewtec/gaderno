@@ -262,7 +262,7 @@ Spawn is **lazy and idempotent**: only the first execute (Run) after a successfu
 1. Require a **bound** kernelspec name; if none → reject exec (`NeedsKernel` / chooser).
 2. Resolve name via **unified discovery** (Jupyter paths + optional uv synthetics below).
 3. Allocate five free TCP ports; write connection file (mode 0600).
-4. Expand kernelspec `argv`; `exec.Command` with cwd = notebook directory.
+4. Expand kernelspec `argv`; `exec.Command` with cwd = the serve directory (`gaderno serve DIR`, else `--root` / `GADERNO_ROOT`). Never inherit the gaderno process cwd; reject an empty work dir.
 5. Connect as ZMQ client with pure-Go `github.com/go-zeromq/zmq4` — **IOPub SUB first** (see wire section).
 6. Heartbeat + IOPub loops owned by kernel adapter.
 7. `kernel_info_request`; Ready only after reply.
@@ -637,11 +637,11 @@ type NotebookStore interface {
 Cobra commands (room to grow; no stub subcommands that do nothing useful):
 
 ```text
-gaderno serve [--root DIR] [--listen ADDR] [--token SECRET]
+gaderno serve [DIR] [--root DIR] [--listen ADDR] [--token SECRET]
 gaderno version
 ```
 
-**Config (Viper):** no config file. Bind flags + automatic env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). **Precedence: flags > env > defaults.**
+**Config (Viper):** no config file. Bind flags + automatic env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). **Precedence: positional DIR > flags > env > defaults.** The serve directory is both the notebook jail and the kernel process cwd.
 
 ---
 

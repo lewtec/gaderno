@@ -14,6 +14,7 @@ var (
 	ErrExecuteTimeout     = errors.New("execute timeout")
 	ErrDialTimeout        = errors.New("dial timeout")
 	ErrEmptyArgv          = errors.New("empty argv")
+	ErrEmptyWorkDir       = errors.New("empty kernel work dir")
 	ErrShellClosed        = errors.New("shell closed")
 	ErrIOPubClosed        = errors.New("iopub closed")
 	ErrConnectionClosed   = errors.New("connection closed")

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,8 +15,9 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
+	Use:   "serve [dir]",
 	Short: "Start the gaderno HTTP server",
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runServe,
 }
 
@@ -50,9 +52,19 @@ func init() {
 	viper.SetDefault("i-understand", false)
 }
 
+// resolveServeRoot is the workspace root and kernel cwd.
+// Positional `gaderno serve DIR` wins over --root / GADERNO_ROOT.
+func resolveServeRoot(positional, flagOrEnv string) string {
+	return cmp.Or(positional, flagOrEnv, ".")
+}
+
 func runServe(cmd *cobra.Command, args []string) error {
+	positional := ""
+	if len(args) == 1 {
+		positional = args[0]
+	}
 	cfg := config.Config{
-		Root:        viper.GetString("root"),
+		Root:        resolveServeRoot(positional, viper.GetString("root")),
 		Listen:      viper.GetString("listen"),
 		Token:       viper.GetString("token"),
 		Kernel:      viper.GetString("kernel"),

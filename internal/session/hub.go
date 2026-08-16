@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -275,10 +274,8 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 	h.spawning = true
 	h.phase = PhaseStarting
 	bound := h.boundName
+	// Serve directory (positional or --root), not the notebook folder.
 	cwd := h.Root
-	if d := filepath.Dir(h.Path); d != "." {
-		cwd = filepath.Join(h.Root, d)
-	}
 	st := h.statusLocked()
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)

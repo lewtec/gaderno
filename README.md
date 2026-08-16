@@ -50,7 +50,7 @@ go build -o gaderno ./cmd/gaderno/
 
 ```bash
 mkdir -p notebooks
-gaderno serve --root ./notebooks --listen 127.0.0.1:8765
+gaderno serve ./notebooks --listen 127.0.0.1:8765
 ```
 
 Open **http://127.0.0.1:8765/** → create or open a notebook → pick a kernel (session status control) → **play** a cell.
@@ -60,7 +60,7 @@ When set, HTTP and WebSocket require the token (`Authorization: Bearer`, cookie 
 
 ```bash
 export GADERNO_TOKEN=secret
-gaderno serve --root ./notebooks --listen 127.0.0.1:8765 --token "$GADERNO_TOKEN"
+gaderno serve ./notebooks --listen 127.0.0.1:8765 --token "$GADERNO_TOKEN"
 # open http://127.0.0.1:8765/?token=secret  (cookie set; token stripped from URL)
 ```
 
@@ -70,7 +70,7 @@ Non-loopback bind without a token is refused unless you pass `--i-understand` (o
 
 | Command | Purpose |
 |---------|---------|
-| `gaderno serve` | HTTP + WebSocket UI over a workspace root |
+| `gaderno serve [dir]` | HTTP + WebSocket UI over a workspace root (kernel cwd is that dir) |
 | `gaderno version` | Print version (release builds set via GoReleaser ldflags) |
 
 ### Flags / env (`serve`)
@@ -79,7 +79,7 @@ Flags override env. Prefix `GADERNO_`.
 
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
-| `--root` | `GADERNO_ROOT` | `.` | Workspace directory of `.ipynb` files |
+| `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd (positional `serve DIR` wins) |
 | `--listen` | `GADERNO_LISTEN` | `127.0.0.1:8080` | Listen address |
 | `--token` | `GADERNO_TOKEN` | _(empty)_ | Optional shared access token (enforced when set) |
 | `--i-understand` | `GADERNO_I_UNDERSTAND` | `false` | Allow non-loopback listen without a token |
