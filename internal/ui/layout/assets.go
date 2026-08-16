@@ -230,6 +230,7 @@ summary.g-icon-btn::-webkit-details-marker {
 }
 .g-session-dot[data-state="warn"] {
   background: var(--color-warning);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-warning) 30%, transparent);
 }
 .g-session-label {
   font-size: 0.75rem;

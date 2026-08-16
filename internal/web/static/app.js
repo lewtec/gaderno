@@ -979,7 +979,7 @@ import { createCollabSession } from "./editor.js";
       play.disabled = true;
       play.classList.add("is-running");
     }
-    setStatus("Running", "run");
+    setStatus("Running", "warn");
     const source = flushSource(id);
     if (cell) {
       cell.classList.add("is-running");
@@ -1439,7 +1439,7 @@ import { createCollabSession } from "./editor.js";
     if (sessionReady) {
       if (needs) setStatus("Pick kernel", "warn");
       else if (st.phase === "busy" || st.running)
-        setStatus(withKernel("Busy"), "run");
+        setStatus(withKernel("Busy"), "warn");
       else if (st.phase === "starting")
         setStatus(withKernel("Starting"), "run");
       else if (st.phase === "dead")
