@@ -95,11 +95,13 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 		deadline = d
 	}
 
-	// Stateful VT filters so progress spinners / CR rewrites collapse across chunks.
-	var outTerm, errTerm TermFilter
-	// Once a stream hits MaxStreamBytes we freeze the capped text and stop
+	// One VT for stdout and stderr. TUIs (workspaced, nom) paint on stderr
+	// and erase with CSI; a second filter cannot see those sequences.
+	var term TermFilter
+	defer term.Close()
+	// Once the stream hits MaxStreamBytes we freeze the capped text and stop
 	// feeding the filter so a runaway print loop cannot OOM the process.
-	outCapped, errCapped := false, false
+	streamCapped := false
 
 	// When the caller's context cancels or we hit the execute deadline, send
 	// interrupt_request on the control channel and drain until this execute
@@ -111,11 +113,9 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 	interrupted := false
 
 	finalizeStreams := func() {
-		if !outCapped {
-			res.Stdout = capStream(outTerm.String())
-		}
-		if !errCapped {
-			res.Stderr = capStream(errTerm.String())
+		if !streamCapped {
+			res.Stdout = capStream(term.String())
+			res.Stderr = ""
 		}
 	}
 
@@ -192,42 +192,27 @@ func (m *Manager) ExecuteOpts(ctx context.Context, code string, opts ExecuteOpts
 			}
 			switch msg.Header.MsgType {
 			case "stream":
-				name, _ := msg.Content["name"].(string)
 				text := multilineContent(msg.Content["text"])
-				if text == "" {
+				if text == "" || streamCapped {
 					continue
 				}
-				if name == "stderr" {
-					if !errCapped {
-						errTerm.Write(text)
-						s := errTerm.String()
-						if len(s) > MaxStreamBytes {
-							res.Stderr = truncateStream(s, MaxStreamBytes)
-							errCapped = true
-							errTerm = TermFilter{} // release filter buffer
-						} else {
-							res.Stderr = s
-						}
-						if opts.OnStream != nil {
-							// Text is the full filtered stream so far (replace, not append).
-							opts.OnStream(StreamChunk{Name: "stderr", Text: res.Stderr})
-						}
-					}
+				term.Write(text)
+				s := term.String()
+				if len(s) > MaxStreamBytes {
+					res.Stdout = truncateStream(s, MaxStreamBytes)
+					res.Stderr = ""
+					streamCapped = true
+					term.Close()
+					term = TermFilter{}
 				} else {
-					if !outCapped {
-						outTerm.Write(text)
-						s := outTerm.String()
-						if len(s) > MaxStreamBytes {
-							res.Stdout = truncateStream(s, MaxStreamBytes)
-							outCapped = true
-							outTerm = TermFilter{} // release filter buffer
-						} else {
-							res.Stdout = s
-						}
-						if opts.OnStream != nil {
-							opts.OnStream(StreamChunk{Name: "stdout", Text: res.Stdout})
-						}
-					}
+					res.Stdout = s
+					res.Stderr = ""
+				}
+				if opts.OnStream != nil {
+					// Combined VT snapshot (replace, not append). Name is
+					// stdout so the client has one buffer; stderr is cleared.
+					opts.OnStream(StreamChunk{Name: "stdout", Text: res.Stdout})
+					opts.OnStream(StreamChunk{Name: "stderr", Text: ""})
 				}
 			case "error":
 				// IOPub error carries ename/evalue/traceback (often ANSI-colored).

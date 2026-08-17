@@ -1,0 +1,7 @@
+I building from source (always rebuilds) task=self-update path=/home/lucasew/.do
+tfiles/workspaced
+I building from source task=self-update path=/home/lucasew/.dotfiles/workspaced
+go=go@1.26.4
+I build completed task=self-update path=/home/lucasew/.local/share/workspaced/bi
+n/workspaced
+I workspaced shim ready task=self-update path=/home/lucasew/.local/bin/workspace

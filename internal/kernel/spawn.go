@@ -1,12 +1,20 @@
 package kernel
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+// Size advertised to the kernel and its children (COLUMNS / LINES).
+// There is no PTY; TUIs that honor the env (nom, workspaced, tqdm) use this.
+const (
+	kernelTermCols = 80
+	kernelTermRows = 24
 )
 
 // ExpandArgv replaces Jupyter placeholders in kernelspec argv.
@@ -53,7 +61,10 @@ func prepareProcess(spec Spec, connectionFile, cwd string) (*exec.Cmd, error) {
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = dir
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("COLUMNS=%d", kernelTermCols),
+		fmt.Sprintf("LINES=%d", kernelTermRows),
+	)
 	for k, v := range spec.Spec.Env {
 		cmd.Env = append(cmd.Env, k+"="+os.ExpandEnv(v))
 	}

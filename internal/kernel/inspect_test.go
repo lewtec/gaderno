@@ -63,11 +63,12 @@ func TestParseInspectReplyCapsPayload(t *testing.T) {
 	if !res.Found {
 		t.Fatalf("expected found")
 	}
-	if !strings.Contains(res.Text, "[gaderno: truncated inspect output]") {
+	plain := strings.ReplaceAll(res.Text, "\n", "")
+	if !strings.Contains(plain, "[gaderno: truncated inspect output]") {
 		t.Fatalf("missing truncate notice: %q…", res.Text[len(res.Text)-80:])
 	}
-	// Body before notice is capped; total may be slightly larger with the notice.
-	if len(res.Text) > MaxInspectBytes+80 {
+	// Body before notice is capped; VT wrap may add newlines.
+	if len(res.Text) > MaxInspectBytes+4096 {
 		t.Fatalf("text still too large: %d", len(res.Text))
 	}
 	if !utf8.ValidString(res.Text) {

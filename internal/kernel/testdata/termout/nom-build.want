@@ -1,0 +1,9 @@
+fetching github input 'github:NixOS/nixpkgs/nixpkgs-unstable'
+this path will be fetched (0.07 MiB download, 0.27 MiB unpacked):
+  /nix/store/lcxc2z1h2g8wq8dxfpizy1di85kyxnqx-hello-2.12.3
+copying path '/nix/store/lcxc2z1h2g8wq8dxfpizy1di85kyxnqx-hello-2.12.3' from 'ht
+tps://cache.nixos.org'
+┏━━━ Downloads       │ Host
+┃        │     │     │ localhost
+┃        │ ↓ 1 │     │ https://cache.nixos.org
+┗━ ∑ ↓ 0 │ ↓ 1 │ ⏸ 0 │ Finished at 19:30:28 after 1m57s
