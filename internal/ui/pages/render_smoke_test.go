@@ -36,7 +36,7 @@ func TestNotebookRenderJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `cell-result-json`, `/static/app.js`, `"python3"`, `print(1)`, `"stdout"`} {
+	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `cell-result-json`, `/static/app.js`, `"python3"`, `print(1)`, `"stdout"`, `id="chat-toasts"`, `toast toast-end toast-bottom`} {
 		if !strings.Contains(out, s) {
 			t.Errorf("missing %q", s)
 		}

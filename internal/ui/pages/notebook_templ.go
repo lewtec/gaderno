@@ -138,7 +138,7 @@ func Notebook(d NotebookData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></main><aside id=\"chat-panel\" class=\"chat-panel\" data-open=\"false\" aria-label=\"Session chat\" aria-hidden=\"true\"><div class=\"chat-panel-inner\"><div class=\"chat-panel-head\"><div class=\"min-w-0\"><div class=\"text-sm font-semibold leading-tight\">Chat</div><div class=\"text-xs text-base-content/50 leading-tight truncate\">Session only · not saved</div></div><button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat-close\" aria-label=\"Close chat\" title=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><div class=\"chat-panel-log\" id=\"chat-log\" aria-live=\"polite\"></div><form class=\"chat-panel-form\" id=\"chat-form\"><input type=\"text\" id=\"chat-input\" placeholder=\"Message…\" aria-label=\"Chat message\" autocomplete=\"off\" class=\"input input-bordered input-sm min-w-0 flex-1\"> <button class=\"btn btn-primary btn-sm shrink-0\" type=\"submit\">Send</button></form></div></aside></div><dialog id=\"kernel-dialog\" class=\"modal modal-bottom sm:modal-middle\"><div class=\"modal-box p-0 gap-0 w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-box sm:rounded-box shadow-lg\"><div class=\"shrink-0 px-4 pt-4 pb-3 border-b border-base-300\"><div class=\"flex items-start justify-between gap-2\"><div class=\"min-w-0\"><h3 class=\"font-semibold text-base leading-tight\">Kernel</h3><p class=\"text-xs text-base-content/55 mt-1 leading-snug\">Pick a runtime. It starts on first <span class=\"font-medium\">play</span>, not on select.</p></div><form method=\"dialog\" class=\"shrink-0\"><button class=\"g-icon-btn\" aria-label=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></form></div><label class=\"input input-bordered input-sm flex items-center gap-2 mt-3 h-9 min-h-0 bg-base-200\"><span class=\"text-base-content/40 text-xs\" aria-hidden=\"true\">⌕</span> <input type=\"search\" id=\"kernel-filter\" class=\"grow bg-transparent border-0 outline-none text-sm\" placeholder=\"Filter by name…\" autocomplete=\"off\"></label></div><div id=\"kernel-list\" class=\"flex-1 min-h-0 overflow-y-auto text-sm\"><div class=\"flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs\"><span class=\"loading loading-spinner loading-xs\"></span> Loading kernels…</div></div><div class=\"shrink-0 px-4 py-3 border-t border-base-300 flex items-center justify-between gap-2 bg-base-200/40\"><span class=\"text-xs text-base-content/50 truncate\" id=\"kernel-dialog-hint\">Jupyter specs and optional uv Pythons</span><form method=\"dialog\"><button class=\"btn btn-sm btn-ghost\">Cancel</button></form></div></div><form method=\"dialog\" class=\"modal-backdrop bg-black/40\"><button>close</button></form></dialog>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></main><aside id=\"chat-panel\" class=\"chat-panel\" data-open=\"false\" aria-label=\"Session chat\" aria-hidden=\"true\"><div class=\"chat-panel-inner\"><div class=\"chat-panel-head\"><div class=\"min-w-0\"><div class=\"text-sm font-semibold leading-tight\">Chat</div><div class=\"text-xs text-base-content/50 leading-tight truncate\">Session only · not saved</div></div><button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat-close\" aria-label=\"Close chat\" title=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><div class=\"chat-panel-log\" id=\"chat-log\" aria-live=\"polite\"></div><form class=\"chat-panel-form\" id=\"chat-form\"><input type=\"text\" id=\"chat-input\" placeholder=\"Message…\" aria-label=\"Chat message\" autocomplete=\"off\" class=\"input input-bordered input-sm min-w-0 flex-1\"> <button class=\"btn btn-primary btn-sm shrink-0\" type=\"submit\">Send</button></form></div></aside></div><dialog id=\"kernel-dialog\" class=\"modal modal-bottom sm:modal-middle\"><div class=\"modal-box p-0 gap-0 w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-box sm:rounded-box shadow-lg\"><div class=\"shrink-0 px-4 pt-4 pb-3 border-b border-base-300\"><div class=\"flex items-start justify-between gap-2\"><div class=\"min-w-0\"><h3 class=\"font-semibold text-base leading-tight\">Kernel</h3><p class=\"text-xs text-base-content/55 mt-1 leading-snug\">Pick a runtime. It starts on first <span class=\"font-medium\">play</span>, not on select.</p></div><form method=\"dialog\" class=\"shrink-0\"><button class=\"g-icon-btn\" aria-label=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></form></div><label class=\"input input-bordered input-sm flex items-center gap-2 mt-3 h-9 min-h-0 bg-base-200\"><span class=\"text-base-content/40 text-xs\" aria-hidden=\"true\">⌕</span> <input type=\"search\" id=\"kernel-filter\" class=\"grow bg-transparent border-0 outline-none text-sm\" placeholder=\"Filter by name…\" autocomplete=\"off\"></label></div><div id=\"kernel-list\" class=\"flex-1 min-h-0 overflow-y-auto text-sm\"><div class=\"flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs\"><span class=\"loading loading-spinner loading-xs\"></span> Loading kernels…</div></div><div class=\"shrink-0 px-4 py-3 border-t border-base-300 flex items-center justify-between gap-2 bg-base-200/40\"><span class=\"text-xs text-base-content/50 truncate\" id=\"kernel-dialog-hint\">Jupyter specs and optional uv Pythons</span><form method=\"dialog\"><button class=\"btn btn-sm btn-ghost\">Cancel</button></form></div></div><form method=\"dialog\" class=\"modal-backdrop bg-black/40\"><button>close</button></form></dialog><div id=\"chat-toasts\" class=\"toast toast-end toast-bottom z-[60]\" aria-live=\"polite\" aria-relevant=\"additions\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -188,7 +188,7 @@ func cellInsert(beforeID string) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(beforeID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 156, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 157, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 167, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 168, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -243,7 +243,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Type)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 167, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 168, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func cellRow(c CellView) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 170, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 171, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 			if templ_7745c5c3_Err != nil {
@@ -284,7 +284,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 187, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 188, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -297,7 +297,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 188, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 189, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
@@ -310,7 +310,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 190, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 191, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
@@ -323,7 +323,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 191, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 192, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 		if templ_7745c5c3_Err != nil {
@@ -336,7 +336,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 193, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 194, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 		if templ_7745c5c3_Err != nil {
@@ -387,7 +387,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 207, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 208, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 		if templ_7745c5c3_Err != nil {
@@ -400,7 +400,7 @@ func cellRow(c CellView) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(cellLang(c.Type))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 208, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 209, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 		if templ_7745c5c3_Err != nil {
