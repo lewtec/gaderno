@@ -1191,6 +1191,11 @@ import { createCollabSession } from "./editor.js";
         return;
       }
       if (key === "Escape") {
+        if (chatPanel && chatPanel.dataset.open === "true") {
+          e.preventDefault();
+          setChatOpen(false);
+          return;
+        }
         if (typing || selectedId) {
           e.preventDefault();
           enterCommandMode();
@@ -1375,6 +1380,7 @@ import { createCollabSession } from "./editor.js";
 
   function setChatOpen(open) {
     if (!chatPanel) return;
+    if (open) closeMenus();
     chatPanel.dataset.open = open ? "true" : "false";
     chatPanel.setAttribute("aria-hidden", open ? "false" : "true");
     if (btnChat) {

@@ -894,9 +894,16 @@ summary.g-icon-btn::-webkit-details-marker {
   font-size: 0.8125rem;
   color: color-mix(in oklch, var(--color-base-content) 85%, transparent);
 }
+.chat-panel-log:empty::before {
+  content: "No messages yet.";
+  display: block;
+  color: color-mix(in oklch, var(--color-base-content) 45%, transparent);
+  line-height: 1.45;
+}
 .chat-panel-form {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
   border-top: 1px solid var(--color-base-300);
