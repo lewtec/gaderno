@@ -921,6 +921,25 @@ summary.g-icon-btn::-webkit-details-marker {
   border-radius: 0.375rem;
 }
 
+@media (pointer: coarse) {
+  .g-icon-btn {
+    min-width: 2.75rem;
+    height: 2.75rem;
+  }
+  .g-icon-btn-sm {
+    min-width: 2rem;
+    height: 2rem;
+  }
+  .cell-row {
+    grid-template-columns: 3rem 1fr;
+  }
+  .cell-play,
+  .cell-md-mark {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .g-logo,
   .g-icon-btn,
