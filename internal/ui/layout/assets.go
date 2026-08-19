@@ -840,6 +840,7 @@ summary.g-icon-btn::-webkit-details-marker {
   justify-content: flex-end;
   pointer-events: none;
   visibility: hidden;
+  overflow: hidden;
 }
 .chat-panel[data-open="true"] {
   pointer-events: auto;
