@@ -823,6 +823,16 @@ summary.g-icon-btn::-webkit-details-marker {
     display: inline;
   }
 }
+@media (max-width: 639px) {
+  .cell-insert-label {
+    display: inline;
+  }
+  .cell-insert-btn {
+    opacity: 0.75;
+    height: 1.75rem;
+    padding: 0 0.55rem;
+  }
+}
 .cell-insert-end {
   margin-top: 0.5rem;
   min-height: 2rem;
