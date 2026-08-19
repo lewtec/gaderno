@@ -931,12 +931,27 @@ const HeadJS = `(function () {
     if (stored === DARK || stored === LIGHT) return stored;
     return systemDark() ? DARK : LIGHT;
   }
+  function markThemeButtons(theme) {
+    var buttons = document.querySelectorAll(".theme-set");
+    for (var i = 0; i < buttons.length; i++) {
+      var on = (buttons[i].getAttribute("data-gaderno-theme") || buttons[i].getAttribute("data-theme")) === theme;
+      buttons[i].classList.toggle("menu-active", on);
+      if (on) buttons[i].setAttribute("aria-current", "true");
+      else buttons[i].removeAttribute("aria-current");
+    }
+  }
   function apply(theme) {
     if (theme !== LIGHT && theme !== DARK) return;
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem(KEY, theme); } catch (e) {}
+    markThemeButtons(theme);
   }
   apply(resolve());
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { markThemeButtons(resolve()); });
+  } else {
+    markThemeButtons(resolve());
+  }
   window.gadernoSetTheme = apply;
   if (window.matchMedia) {
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
@@ -948,7 +963,7 @@ const HeadJS = `(function () {
   document.addEventListener("click", function (e) {
     var b = e.target && e.target.closest && e.target.closest(".theme-set");
     if (!b) return;
-    var t = b.getAttribute("data-theme");
+    var t = b.getAttribute("data-gaderno-theme") || b.getAttribute("data-theme");
     if (t) apply(t);
     var d = b.closest("details");
     if (d) d.open = false;

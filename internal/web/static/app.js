@@ -158,7 +158,7 @@ import { createCollabSession } from "./editor.js";
 
   $all(".theme-set").forEach(function (b) {
     b.addEventListener("click", function () {
-      const t = b.getAttribute("data-theme");
+      const t = b.getAttribute("data-gaderno-theme") || b.getAttribute("data-theme");
       if (window.gadernoSetTheme) window.gadernoSetTheme(t);
       const d = b.closest("details");
       if (d) d.open = false;
