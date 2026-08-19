@@ -174,7 +174,7 @@ func (g *Gate) ClearCookie(w http.ResponseWriter) {
 }
 
 func isPublicPath(path string) bool {
-	if path == "/healthz" {
+	if path == "/healthz" || path == "/favicon.ico" {
 		return true
 	}
 	if strings.HasPrefix(path, "/static/") {

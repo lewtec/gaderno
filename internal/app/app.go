@@ -49,6 +49,9 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/favicon.svg", http.StatusFound)
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		if _, err := w.Write([]byte("ok\n")); err != nil {
@@ -120,7 +123,7 @@ func withLogging(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		if r.URL.Path != "/healthz" && !strings.HasPrefix(r.URL.Path, "/static/") {
+		if r.URL.Path != "/healthz" && r.URL.Path != "/favicon.ico" && !strings.HasPrefix(r.URL.Path, "/static/") {
 			// Never log raw query: may contain ?token= during bootstrap.
 			logger.Info("http", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
 		}
