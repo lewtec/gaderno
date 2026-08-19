@@ -168,6 +168,7 @@ import { createCollabSession } from "./editor.js";
   // Per-tab hub lifetime fence (SPEC: session identity).
   const sessionStorageKey = "gaderno.session:" + path;
   let sessionReady = false;
+  let myClientShort = "";
 
   async function connect() {
     if (!path) return;
@@ -236,6 +237,7 @@ import { createCollabSession } from "./editor.js";
         }
         if (sid) sessionStorage.setItem(sessionStorageKey, sid);
         sessionReady = true;
+        myClientShort = msg.client_id ? String(msg.client_id).slice(0, 8) : "";
         sendJSON({ type: "hello.ack", session_id: sid });
         collab.attachTransport({
           sendBinary: sendBinary,
@@ -340,17 +342,11 @@ import { createCollabSession } from "./editor.js";
       } else if (msg.type === "kernel.needs_pick") {
         openKernelChooser();
       } else if (msg.type === "chat.message") {
-        const log = $("#chat-log");
-        if (!log) return;
-        const line = document.createElement("div");
-        line.className = "py-1";
-        const who = document.createElement("span");
-        who.className = "font-code font-semibold text-primary mr-1.5";
-        who.textContent = msg.from || "?";
-        line.appendChild(who);
-        line.appendChild(document.createTextNode(msg.text || ""));
-        log.appendChild(line);
-        log.scrollTop = log.scrollHeight;
+        appendChatLine(msg.from, msg.text);
+        const mine = myClientShort && (msg.from || "") === myClientShort;
+        if (!mine && !isChatOpen()) {
+          showChatToast(msg.from, msg.text);
+        }
       } else if (
         msg.type === "complete.reply" ||
         msg.type === "inspect.reply"
@@ -1376,7 +1372,62 @@ import { createCollabSession } from "./editor.js";
   const chatPanel = document.getElementById("chat-panel");
   const btnChat = document.getElementById("btn-chat");
   const btnChatClose = document.getElementById("btn-chat-close");
+  const chatToasts = document.getElementById("chat-toasts");
   const CHAT_KEY = "gaderno-chat-open";
+  const CHAT_TOAST_MS = 5000;
+  const CHAT_TOAST_MAX = 3;
+
+  function isChatOpen() {
+    return !!(chatPanel && chatPanel.dataset.open === "true");
+  }
+
+  function dismissChatToasts() {
+    if (chatToasts) chatToasts.replaceChildren();
+  }
+
+  function appendChatLine(from, text) {
+    const log = $("#chat-log");
+    if (!log) return;
+    const line = document.createElement("div");
+    line.className = "py-1";
+    const who = document.createElement("span");
+    who.className = "font-code font-semibold text-primary mr-1.5";
+    who.textContent = from || "?";
+    line.appendChild(who);
+    line.appendChild(document.createTextNode(text || ""));
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function showChatToast(from, text) {
+    if (!chatToasts) return;
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "alert text-left cursor-pointer max-w-xs";
+    item.setAttribute("role", "alert");
+    const who = document.createElement("span");
+    who.className = "font-code font-semibold text-primary";
+    who.textContent = from || "?";
+    const body = document.createElement("span");
+    body.className = "line-clamp-2 break-words";
+    body.textContent = text || "";
+    const wrap = document.createElement("span");
+    wrap.className = "flex min-w-0 flex-col gap-0.5";
+    wrap.appendChild(who);
+    wrap.appendChild(body);
+    item.appendChild(wrap);
+    item.addEventListener("click", function () {
+      item.remove();
+      setChatOpen(true);
+    });
+    chatToasts.appendChild(item);
+    while (chatToasts.children.length > CHAT_TOAST_MAX) {
+      chatToasts.removeChild(chatToasts.firstChild);
+    }
+    setTimeout(function () {
+      if (item.parentNode) item.remove();
+    }, CHAT_TOAST_MS);
+  }
 
   function setChatOpen(open) {
     if (!chatPanel) return;
@@ -1391,6 +1442,7 @@ import { createCollabSession } from "./editor.js";
       localStorage.setItem(CHAT_KEY, open ? "1" : "0");
     } catch (_) {}
     if (open) {
+      dismissChatToasts();
       focusLater(document.getElementById("chat-input"), 200);
     }
   }

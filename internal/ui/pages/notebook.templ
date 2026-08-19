@@ -146,6 +146,7 @@ templ Notebook(d NotebookData) {
 				</div>
 				<form method="dialog" class="modal-backdrop bg-black/40"><button>close</button></form>
 			</dialog>
+			<div id="chat-toasts" class="toast toast-end toast-bottom z-[60]" aria-live="polite" aria-relevant="additions"></div>
 			@gadernoBoot(d.PathJSON, d.KernelJSON)
 			<script type="module" src="/static/app.js"></script>
 		</body>
