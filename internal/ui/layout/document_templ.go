@@ -58,7 +58,7 @@ func Document(title string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<link rel=\"icon\" href=\"/static/favicon.svg\" type=\"image/svg+xml\"><link rel=\"stylesheet\" href=\"/static/vendor/daisyui.css\"><script src=\"/static/vendor/tailwind-browser.js\"></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<link rel=\"icon\" href=\"/static/logo.png\" type=\"image/png\"><link rel=\"stylesheet\" href=\"/static/vendor/daisyui.css\"><script src=\"/static/vendor/tailwind-browser.js\"></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

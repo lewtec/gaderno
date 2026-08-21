@@ -57,7 +57,7 @@ func Notebook(d NotebookData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<body class=\"h-full min-h-0 flex flex-col bg-base-100 text-base-content text-sm overflow-hidden\"><header class=\"g-topbar sticky top-0 z-50 shrink-0 bg-base-100/90 backdrop-blur-sm border-b border-base-300\"><div class=\"g-topbar-inner\"><a href=\"/\" class=\"g-logo\" title=\"gaderno\" aria-label=\"gaderno home\">G</a> <span class=\"g-topbar-path font-code truncate min-w-0\" title=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<body class=\"h-full min-h-0 flex flex-col bg-base-100 text-base-content text-sm overflow-hidden\"><header class=\"g-topbar sticky top-0 z-50 shrink-0 bg-base-100/90 backdrop-blur-sm border-b border-base-300\"><div class=\"g-topbar-inner\"><a href=\"/\" class=\"g-logo\" title=\"gaderno\" aria-label=\"gaderno home\"><img src=\"/static/logo.png\" width=\"32\" height=\"32\" alt=\"\"></a> <span class=\"g-topbar-path font-code truncate min-w-0\" title=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

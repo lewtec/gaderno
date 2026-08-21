@@ -1,3 +1,5 @@
+<p align="center"><img src="internal/web/static/logo.png" alt="gaderno" width="160"></p>
+
 # gaderno
 
 Local **collaborative notebooks** as a single Go binary: real Jupyter kernels on the host, server-owned document (Yjs/ygo CRDT), thin browser UI.
