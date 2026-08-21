@@ -12,7 +12,7 @@ func TestWorkspaceRender(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, s := range []string{"/static/vendor/daisyui.css", "/static/vendor/tailwind-browser.js", "/static/favicon.svg", "gaderno-light", "a.ipynb", "g-nb-row"} {
+	for _, s := range []string{"/static/vendor/daisyui.css", "/static/vendor/tailwind-browser.js", "/static/logo.png", "gaderno-light", "a.ipynb", "g-nb-row"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("missing %q", s)
 		}

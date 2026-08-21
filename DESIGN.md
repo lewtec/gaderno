@@ -11,10 +11,10 @@ Notebook product surface with **daisyUI 5 + Tailwind 4**: spacier, polished, mob
 - Components: navbar, btn, badge, menu, modal, input, dropdown
 
 ## Color
-Cobalt primary (~250° OKLCH). Pure white base in light. **Logo chip only:** Go gopher blue `#00ADD8` behind white **G**. Radii ~0.375–0.5rem for a slightly softer product feel; avoid 24px+ cards.
+Cobalt primary (~250° OKLCH). Pure white base in light. **Logo only:** spiral notebook with gopher face (cyan cover). Radii ~0.375–0.5rem for a slightly softer product feel; avoid 24px+ cards.
 
 ## Shell
-- Sticky topbar: **G** | path | flex | session status | chat | avatar
+- Sticky topbar: **logo** | path | flex | session status | chat | avatar
 - Mobile: icon-only actions; path truncates
 - Session status: sync/trust; opens kernel dialog
 - Chat: full-width closable panel (mobile); same panel model desktop

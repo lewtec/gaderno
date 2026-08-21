@@ -113,18 +113,17 @@ const HeadCSS = `/* gaderno themes + product CSS (inlined; daisyUI utilities fro
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 0.375rem;
-  background: #00add8;
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.875rem;
-  letter-spacing: -0.02em;
-  line-height: 1;
   flex-shrink: 0;
   text-decoration: none;
   transition: filter 160ms ease-out, transform 160ms ease-out;
+}
+.g-logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .g-logo:hover {
   filter: brightness(1.05);
