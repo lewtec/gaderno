@@ -270,21 +270,24 @@ func (n *NotebookDoc) InsertCell(index int, cellType document.CellType, source s
 	return id, err
 }
 
+// cellIndex returns the position of cellID in ids (DeleteCell / MoveCell).
+func cellIndex(ids []string, cellID string) (int, error) {
+	for i, id := range ids {
+		if id == cellID {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("%w: %q", ErrCellNotFound, cellID)
+}
+
 // DeleteCell removes a cell by id from order (source text may remain orphaned; ok for yjs).
 func (n *NotebookDoc) DeleteCell(cellID string) error {
 	if cellID == "" {
 		return ErrEmptyCellID
 	}
-	ids := n.CellIDs()
-	idx := -1
-	for i, id := range ids {
-		if id == cellID {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
-		return fmt.Errorf("%w: %q", ErrCellNotFound, cellID)
+	idx, err := cellIndex(n.CellIDs(), cellID)
+	if err != nil {
+		return err
 	}
 	cells := n.Doc.GetArray(RootCells)
 	return n.Doc.TransactE(func(txn *ycrdt.Transaction) error {
@@ -304,15 +307,9 @@ func (n *NotebookDoc) MoveCell(cellID string, toIndex int) error {
 		return ErrEmptyCellID
 	}
 	ids := n.CellIDs()
-	from := -1
-	for i, id := range ids {
-		if id == cellID {
-			from = i
-			break
-		}
-	}
-	if from < 0 {
-		return fmt.Errorf("%w: %q", ErrCellNotFound, cellID)
+	from, err := cellIndex(ids, cellID)
+	if err != nil {
+		return err
 	}
 	if len(ids) == 0 {
 		return nil

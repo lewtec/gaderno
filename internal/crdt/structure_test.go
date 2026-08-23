@@ -1,6 +1,7 @@
 package crdt
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/lucasew/gaderno/internal/document"
@@ -88,6 +89,28 @@ func TestMoveMultiple(t *testing.T) {
 	snap := d.SnapshotCells()
 	if len(snap) != 3 || snap[0].ID != idC || snap[0].Source != "c" {
 		t.Fatalf("snapshot %+v", snap)
+	}
+}
+
+func TestCellIndexMissing(t *testing.T) {
+	d := New()
+	if err := d.LoadFromNotebook(document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.DeleteCell(""); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("delete empty: %v", err)
+	}
+	if err := d.MoveCell("", 0); !errors.Is(err, ErrEmptyCellID) {
+		t.Fatalf("move empty: %v", err)
+	}
+	if err := d.DeleteCell("missing"); !errors.Is(err, ErrCellNotFound) {
+		t.Fatalf("delete missing: %v", err)
+	}
+	if err := d.MoveCell("missing", 0); !errors.Is(err, ErrCellNotFound) {
+		t.Fatalf("move missing: %v", err)
+	}
+	if _, err := cellIndex(d.CellIDs(), "missing"); !errors.Is(err, ErrCellNotFound) {
+		t.Fatalf("cellIndex: %v", err)
 	}
 }
 
