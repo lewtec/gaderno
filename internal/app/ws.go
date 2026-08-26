@@ -313,23 +313,13 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 	case "complete.request":
 		// Async; reply only to requesting client (not broadcast).
 		go func() {
-			code := ctrl.Code
-			if code == "" {
-				code = ctrl.Source
-			}
-			pos := 0
-			if ctrl.CursorPos != nil {
-				pos = *ctrl.CursorPos
-			} else if len(code) > 0 {
-				pos = len(code)
-			}
+			code, pos := kernelRPCCodePos(ctrl)
 			reqID := ctrl.ReqID
 			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 			defer cancel()
 			res, err := hub.Complete(ctx, code, pos)
 			if err != nil {
-				select {
-				case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
+				sendClientJSON(client, map[string]any{
 					"type":         "complete.reply",
 					"req_id":       reqID,
 					"status":       "error",
@@ -337,36 +327,22 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 					"cursor_start": pos,
 					"cursor_end":   pos,
 					"text":         err.Error(),
-				})}:
-				default:
-				}
+				})
 				return
 			}
-			select {
-			case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
+			sendClientJSON(client, map[string]any{
 				"type":         "complete.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
 				"matches":      res.Matches,
 				"cursor_start": res.CursorStart,
 				"cursor_end":   res.CursorEnd,
-			})}:
-			default:
-			}
+			})
 		}()
 	case "inspect.request":
 		// Hover / signature help — reply only to originator.
 		go func() {
-			code := ctrl.Code
-			if code == "" {
-				code = ctrl.Source
-			}
-			pos := 0
-			if ctrl.CursorPos != nil {
-				pos = *ctrl.CursorPos
-			} else if len(code) > 0 {
-				pos = len(code)
-			}
+			code, pos := kernelRPCCodePos(ctrl)
 			detail := 0
 			if ctrl.DetailLevel != nil {
 				detail = *ctrl.DetailLevel
@@ -376,21 +352,17 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 			defer cancel()
 			res, err := hub.Inspect(ctx, code, pos, detail)
 			if err != nil {
-				select {
-				case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
+				sendClientJSON(client, map[string]any{
 					"type":         "inspect.reply",
 					"req_id":       reqID,
 					"status":       "error",
 					"found":        false,
 					"text":         err.Error(),
 					"detail_level": detail,
-				})}:
-				default:
-				}
+				})
 				return
 			}
-			select {
-			case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]any{
+			sendClientJSON(client, map[string]any{
 				"type":         "inspect.reply",
 				"req_id":       reqID,
 				"status":       res.Status,
@@ -398,16 +370,32 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				"text":         res.Text,
 				"html":         res.HTML,
 				"detail_level": res.DetailLevel,
-			})}:
-			default:
-			}
+			})
 		}()
 	}
 }
 
-func sendErr(client *session.Client, msg string) {
+// kernelRPCCodePos prefers Code over Source and defaults the cursor to EOF.
+func kernelRPCCodePos(ctrl wsControl) (code string, pos int) {
+	code = ctrl.Code
+	if code == "" {
+		code = ctrl.Source
+	}
+	if ctrl.CursorPos != nil {
+		pos = *ctrl.CursorPos
+	} else if len(code) > 0 {
+		pos = len(code)
+	}
+	return code, pos
+}
+
+func sendClientJSON(client *session.Client, payload any) {
 	select {
-	case client.Out <- session.Outbound{Data: jsonutil.Bytes(map[string]string{"type": "error", "text": msg})}:
+	case client.Out <- session.Outbound{Data: jsonutil.Bytes(payload)}:
 	default:
 	}
+}
+
+func sendErr(client *session.Client, msg string) {
+	sendClientJSON(client, map[string]string{"type": "error", "text": msg})
 }
