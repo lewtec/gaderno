@@ -29,25 +29,25 @@ func writeComponent(fn func(w io.Writer) error) templ.Component {
 	})
 }
 
-// cellSourceJSON emits a JSON script tag. json must be encoding/json output.
-func cellSourceJSON(cellID, json string) templ.Component {
+// cellJSONScript emits a JSON script tag. json must be encoding/json output.
+func cellJSONScript(class, cellID, json string) templ.Component {
 	return writeComponent(func(w io.Writer) error {
 		// cell IDs are generated UUIDs / internal ids — still attribute-escape.
 		_, err := fmt.Fprintf(w,
-			`<script type="application/json" class="cell-source-json" data-cell-id="%s">%s</script>`,
-			templ.EscapeString(cellID), json)
+			`<script type="application/json" class="%s" data-cell-id="%s">%s</script>`,
+			class, templ.EscapeString(cellID), json)
 		return err
 	})
 }
 
+// cellSourceJSON emits a JSON script tag. json must be encoding/json output.
+func cellSourceJSON(cellID, json string) templ.Component {
+	return cellJSONScript("cell-source-json", cellID, json)
+}
+
 // cellResultJSON emits saved outputs + execution_count for first paint.
 func cellResultJSON(cellID, json string) templ.Component {
-	return writeComponent(func(w io.Writer) error {
-		_, err := fmt.Fprintf(w,
-			`<script type="application/json" class="cell-result-json" data-cell-id="%s">%s</script>`,
-			templ.EscapeString(cellID), json)
-		return err
-	})
+	return cellJSONScript("cell-result-json", cellID, json)
 }
 
 // gadernoBoot emits window.__GADERNO__ from json.Marshal'd path and kernel.
