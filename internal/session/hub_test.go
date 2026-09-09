@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -239,6 +240,44 @@ func TestOutputsFromExecuteIncludesTraceback(t *testing.T) {
 	}
 	if len(errOut.Traceback) != 2 || errOut.Traceback[1] != "ValueError: boom" {
 		t.Fatalf("traceback %#v", errOut.Traceback)
+	}
+}
+
+func TestBroadcastExecReachesClient(t *testing.T) {
+	dir := t.TempDir()
+	st := store.New(dir)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close(t.Context())
+	c := h.AddClient("c1")
+	id := h.Doc.CellIDs()[0]
+	h.broadcastExecStream(id, kernel.StreamChunk{Name: "stdout", Text: "1\n"})
+	h.broadcastExecResult(id, kernel.ExecuteResult{Status: "ok", Stdout: "1\n", ExecutionCount: 1})
+
+	got := map[string]bool{}
+	for i := 0; i < 2; i++ {
+		select {
+		case out := <-c.Out:
+			var msg map[string]any
+			if err := json.Unmarshal(out.Data, &msg); err != nil {
+				t.Fatal(err)
+			}
+			typ, _ := msg["type"].(string)
+			got[typ] = true
+			if msg["cell_id"] != id {
+				t.Fatalf("cell_id %v", msg["cell_id"])
+			}
+		default:
+			t.Fatal("expected exec fan-out on client.Out")
+		}
+	}
+	if !got["exec.stream"] || !got["exec.result"] {
+		t.Fatalf("frames %v", got)
 	}
 }
 

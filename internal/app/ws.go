@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/lucasew/gaderno/internal/jsonutil"
-	"github.com/lucasew/gaderno/internal/kernel"
 	"github.com/lucasew/gaderno/internal/session"
 )
 
@@ -276,42 +275,10 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 				sendErr(client, err.Error())
 				return
 			}
-			res, err := hub.ExecuteCell(ctx, ctrl.CellID,
-				func(ch kernel.StreamChunk) {
-					hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
-						"type":    "exec.stream",
-						"cell_id": ctrl.CellID,
-						"name":    ch.Name,
-						"text":    ch.Text,
-					}), "")
-				},
-				func(dd kernel.DisplayData) {
-					// Full mime bundle — client chooses renderers.
-					hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
-						"type":        "exec.display",
-						"cell_id":     ctrl.CellID,
-						"output_type": dd.OutputType,
-						"data":        dd.Data,
-						"metadata":    dd.Metadata,
-						"transient":   dd.Transient,
-					}), "")
-				},
-			)
-			if err != nil {
+			if _, err := hub.ExecuteCell(ctx, ctrl.CellID, nil, nil); err != nil {
 				sendErr(client, err.Error())
 				return
 			}
-			hub.BroadcastJSON(jsonutil.Bytes(map[string]any{
-				"type":            "exec.result",
-				"cell_id":         ctrl.CellID,
-				"status":          res.Status,
-				"stdout":          res.Stdout,
-				"stderr":          res.Stderr,
-				"ename":           res.Ename,
-				"evalue":          res.Evalue,
-				"traceback":       res.Traceback,
-				"execution_count": res.ExecutionCount,
-			}), "")
 		}()
 	case "complete.request":
 		// Async; reply only to requesting client (not broadcast).
