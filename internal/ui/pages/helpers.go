@@ -51,6 +51,16 @@ func cellResultJSON(cellID, json string) templ.Component {
 }
 
 // gadernoBoot emits window.__GADERNO__ from json.Marshal'd path and kernel.
+// agentBoot emits window.__GADERNO_AGENT__ from json.Marshal'd token.
+func agentBoot(tokenJSON string) templ.Component {
+	return writeComponent(func(w io.Writer) error {
+		_, err := fmt.Fprintf(w,
+			"<script>\nwindow.__GADERNO_AGENT__ = { token: %s };\n</script>\n",
+			tokenJSON)
+		return err
+	})
+}
+
 func gadernoBoot(pathJSON, kernelJSON string) templ.Component {
 	return writeComponent(func(w io.Writer) error {
 		_, err := fmt.Fprintf(w,

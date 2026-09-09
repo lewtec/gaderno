@@ -12,7 +12,20 @@ func TestWorkspaceRender(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, s := range []string{"/static/vendor/daisyui.css", "/static/vendor/tailwind-browser.js", "/static/logo.png", "gaderno-light", "a.ipynb", "g-nb-row"} {
+	for _, s := range []string{"/static/vendor/daisyui.css", "/static/vendor/tailwind-browser.js", "/static/logo.png", "gaderno-light", "a.ipynb", "g-nb-row", `href="/agent"`} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q", s)
+		}
+	}
+}
+
+func TestAgentRender(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Agent(AgentData{TokenJSON: `""`}).Render(t.Context(), &buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, s := range []string{`id="agent-copy"`, `id="agent-invite"`, "/SKILL.md", "__GADERNO_AGENT__"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("missing %q", s)
 		}

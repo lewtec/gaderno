@@ -681,6 +681,8 @@ Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
 | GET | `/api/kernels` | catalog |
 | POST | `/api/kernel/bind` | bind kernelspec (UI; path in body) |
 | GET | `/api/kernel/status` | session kernel phase (UI; `?path=`) |
+| GET | `/SKILL.md` | instance skill (token required when configured) |
+| GET | `/agent` | copy-paste invite for a coding agent |
 | GET | `/api/agent` | markdown contract for HTTP agents |
 | POST | `/api/ws-ticket` | short-lived WS ticket |
 | GET | `/ws/notebooks/{path}` | **the** WebSocket |
