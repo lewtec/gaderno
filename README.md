@@ -77,7 +77,7 @@ Agents talk to the same server over request-response HTTP (curl). Not MCP, not t
 3. `POST /api/sessions` with the notebook filename; keep `session_id`.
 4. Mutate under `/api/sessions/{id}/…` (cells, execute, chat, save). Kernel pick stays in the UI.
 
-A project skill (`.grok/skills/gaderno`) tells coding agents to fetch that contract and follow it.
+A project skill (`skills/gaderno`) tells coding agents to fetch that contract and follow it.
 
 ### CLI
 
