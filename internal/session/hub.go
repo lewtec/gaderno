@@ -27,6 +27,7 @@ var (
 	ErrInvalidCellType       = errors.New("invalid cell type")
 	ErrKernelNotStarted      = errors.New("kernel not started")
 	ErrClientNotSessionReady = errors.New("client not session-ready")
+	ErrSessionNotFound       = errors.New("session not found")
 )
 
 // Client is a connected browser peer.
