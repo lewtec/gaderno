@@ -182,7 +182,6 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry) {
 			return
 		}
 		var body struct {
-			Kernel string  `json:"kernel"`
 			Source *string `json:"source"`
 		}
 		if err := decodeJSONBodyOptional(r, &body); err != nil {
@@ -197,7 +196,8 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
-		if err := hub.EnsureKernel(ctx, body.Kernel); err != nil {
+		// Empty name: start the already-bound spec only. Agents cannot pick.
+		if err := hub.EnsureKernel(ctx, ""); err != nil {
 			writeEnsureKernelError(w, err)
 			return
 		}
@@ -215,25 +215,6 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry) {
 			return
 		}
 		if err := hub.Interrupt(r.Context()); err != nil {
-			writeHubError(w, err)
-			return
-		}
-		writeJSON(w, hub.Status())
-	})
-
-	mux.HandleFunc("POST /api/sessions/{id}/kernel", func(w http.ResponseWriter, r *http.Request) {
-		hub, ok := openSession(w, r, reg)
-		if !ok {
-			return
-		}
-		var body struct {
-			Name string `json:"name"`
-		}
-		if err := decodeJSONBody(r, &body); err != nil || body.Name == "" {
-			http.Error(w, "name required", http.StatusBadRequest)
-			return
-		}
-		if err := hub.BindKernel(body.Name); err != nil {
 			writeHubError(w, err)
 			return
 		}

@@ -75,7 +75,7 @@ Agents talk to the same server over request-response HTTP (curl). Not MCP, not t
 1. Set `GADERNO_URL` (no trailing slash) and `GADERNO_TOKEN` if the server has a token.
 2. `GET $GADERNO_URL/api/agent` — route list and curl examples.
 3. `POST /api/sessions` with the notebook filename; keep `session_id`.
-4. Mutate under `/api/sessions/{id}/…` (cells, execute, kernel, save).
+4. Mutate under `/api/sessions/{id}/…` (cells, execute, save). Kernel pick stays in the UI.
 
 A project skill (`.grok/skills/gaderno`) tells coding agents to fetch that contract and follow it.
 

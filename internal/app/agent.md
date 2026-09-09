@@ -84,7 +84,8 @@ curl -fsS "$GADERNO_URL/api/sessions/$SID"
 `omitted` lists mime types dropped from the compact view (images, HTML). Open the notebook in a browser to see them.
 
 Kernel `phase`: `needs_kernel` | `bound` | `starting` | `ready` | `busy` | `dead`.
-Exec is blocked while `needs_kernel` is true. Bind a kernel first.
+Exec is blocked while `needs_kernel` is true. Do not bind or switch a kernel.
+Tell the user to pick one in the UI (`<url>/n/<path>`, session status control).
 
 Full nbformat (`GET /api/notebooks/<path>`) includes base64 images. Do not load it into context.
 
@@ -129,28 +130,16 @@ curl -fsS -X DELETE "$GADERNO_URL/api/sessions/$SID/cells/$CID"
 
 Unknown session or cell → 404. Invalid `type` → 400. Types: `code` | `markdown` | `raw`.
 
-## Kernels
-
-Catalog is process-wide. Bind is per session.
-
-```bash
-curl -fsS "$GADERNO_URL/api/kernels"
-
-curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/kernel" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"python3"}'
-```
-
-Pick `name` from `/api/kernels`. Bind does not start the process. First execute does.
-
 ## Execute
 
 Waits until the cell finishes (up to 2 minutes) and returns the result. Optional `source` is written first, then run.
 
+The kernel is whoever the user already bound (notebook metadata or the UI chooser). There is no agent bind route. A `kernel` field in the execute body is ignored.
+
 ```bash
 curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/cells/$CID/execute" \
   -H 'Content-Type: application/json' \
-  -d '{"kernel":"python3"}'
+  -d '{"source":"print(1+1)"}'
 ```
 
 ```json
@@ -167,9 +156,7 @@ curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/cells/$CID/execute" \
 
 `status` is `ok` | `error` | `abort`. On error read `ename`, `evalue`, and optional `traceback`.
 
-`kernel` is optional when the session already has a bound kernelspec. Pass it on the first run if `needs_kernel` is true.
-
-No kernel bound → 400. Unknown kernelspec → 409. Spawn failure → 502.
+No kernel bound (`needs_kernel`) → 400. Tell the user to pick a kernel in the UI, then execute again. Spawn failure → 502.
 
 Stop a running execute:
 
@@ -197,7 +184,7 @@ curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/save"
 | 400 | Bad input, or no kernel selected |
 | 401 | Shared token missing or wrong |
 | 404 | Session, notebook, or cell not found |
-| 409 | Kernel not started, or kernelspec unavailable |
+| 409 | Kernel process not started (interrupt with no process) |
 | 502 | Kernel spawn failed |
 
 ## Working loop
@@ -205,7 +192,7 @@ curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/save"
 1. List notebooks or create one. Note the filename.
 2. `POST /api/sessions` with that path. Keep `session_id`.
 3. Insert or PATCH source. Use cell ids from the response. Do not guess ids.
-4. Bind a kernel if `needs_kernel`.
+4. If `needs_kernel`, stop and tell the user to pick a kernel in the UI. Do not bind one.
 5. `POST /api/sessions/$SID/cells/$CID/execute`. Read `stdout` / `stderr` / `ename`.
 6. Fix the same cell and execute again. Do not rewrite the whole notebook.
 
