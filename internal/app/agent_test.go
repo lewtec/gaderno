@@ -29,7 +29,7 @@ func newAgentMux(t *testing.T) (*http.ServeMux, *session.Registry, *store.Store)
 	registerWorkspaceRoutes(mux, ws, slog.Default())
 	registerNotebookRoutes(mux, st, reg, "python3", slog.Default())
 	registerKernelRoutes(mux, reg, slog.Default())
-	registerAgentRoutes(mux, reg)
+	registerAgentRoutes(mux, reg, "", slog.Default())
 	return mux, reg, st
 }
 
@@ -94,6 +94,37 @@ func TestAgentContractRoute(t *testing.T) {
 	}
 	if strings.Contains(body, "/api/sessions/$SID/kernel") {
 		t.Fatal("contract must not offer kernel bind")
+	}
+}
+
+func TestSkillMDRoute(t *testing.T) {
+	mux, _, _ := newAgentMux(t)
+	rec := doJSON(t, mux, http.MethodGet, "/SKILL.md", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /SKILL.md status %d body %s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/markdown") {
+		t.Fatalf("Content-Type=%q", ct)
+	}
+	body := rec.Body.String()
+	for _, needle := range []string{"this document's origin", "!uv pip install", "/api/agent"} {
+		if !strings.Contains(body, needle) {
+			t.Fatalf("skill missing %q", needle)
+		}
+	}
+}
+
+func TestAgentPage(t *testing.T) {
+	mux, _, _ := newAgentMux(t)
+	rec := doJSON(t, mux, http.MethodGet, "/agent", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /agent status %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, needle := range []string{`id="agent-copy"`, `id="agent-invite"`, "/SKILL.md", "__GADERNO_AGENT__"} {
+		if !strings.Contains(body, needle) {
+			t.Fatalf("agent page missing %q", needle)
+		}
 	}
 }
 

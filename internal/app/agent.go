@@ -11,18 +11,42 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/lucasew/gaderno/internal/crdt"
 	"github.com/lucasew/gaderno/internal/document"
 	"github.com/lucasew/gaderno/internal/session"
 	"github.com/lucasew/gaderno/internal/store"
+	"github.com/lucasew/gaderno/internal/ui/pages"
 )
 
-//go:embed agent.md
+//go:embed agent.md skill.md
 var agentContractFS embed.FS
 
 var errTrailingJSON = errors.New("unexpected JSON after first value")
 
-func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry) {
+func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry, token string, logger *slog.Logger) {
+	mux.HandleFunc("GET /SKILL.md", func(w http.ResponseWriter, r *http.Request) {
+		raw, err := agentContractFS.ReadFile("skill.md")
+		if err != nil {
+			http.Error(w, "skill missing", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		if _, err := w.Write(raw); err != nil {
+			return
+		}
+	})
+
+	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
+		raw, err := json.Marshal(token)
+		if err != nil {
+			http.Error(w, "render failed", http.StatusInternalServerError)
+			return
+		}
+		renderTempl(w, r, logger, pages.Agent(pages.AgentData{TokenJSON: string(raw)}))
+	})
+
 	mux.HandleFunc("GET /api/agent", func(w http.ResponseWriter, r *http.Request) {
 		raw, err := agentContractFS.ReadFile("agent.md")
 		if err != nil {
