@@ -128,6 +128,28 @@ func TestAgentPage(t *testing.T) {
 	}
 }
 
+func TestAgentPageScopedToSession(t *testing.T) {
+	mux, reg, st := newAgentMux(t)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	hub, err := reg.GetOrOpen(t.Context(), "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := doJSON(t, mux, http.MethodGet, "/agent?path=n.ipynb", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /agent?path status %d body %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, hub.SessionID) {
+		t.Fatalf("invite boot missing session_id %q", hub.SessionID)
+	}
+	if !strings.Contains(body, `"n.ipynb"`) {
+		t.Fatal("invite boot missing path")
+	}
+}
+
 func TestOpenSessionJoinsSameHub(t *testing.T) {
 	mux, reg, st := newAgentMux(t)
 	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {

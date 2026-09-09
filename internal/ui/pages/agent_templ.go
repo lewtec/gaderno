@@ -11,10 +11,13 @@ import templruntime "github.com/a-h/templ/runtime"
 import "github.com/lucasew/gaderno/internal/ui/layout"
 
 type AgentData struct {
-	TokenJSON string // json.Marshal of the shared token (may be "")
+	Path        string
+	TokenJSON   string // json.Marshal of the shared token (may be "")
+	PathJSON    string // json.Marshal of notebook path (may be "")
+	SessionJSON string // json.Marshal of session id (may be "")
 }
 
-func Agent(d AgentData) templ.Component {
+func AgentNav(path string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -35,7 +38,49 @@ func Agent(d AgentData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<a href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var2 templ.SafeURL
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinURLErrs(agentPageURL(path))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/agent.templ`, Line: 13, Col: 29}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"btn btn-ghost btn-sm\">Agent</a>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func Agent(d AgentData) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -47,21 +92,57 @@ func Agent(d AgentData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<body class=\"min-h-full bg-base-100 text-base-content text-sm\"><header class=\"g-topbar sticky top-0 z-50 bg-base-100/90 backdrop-blur-sm border-b border-base-300\"><div class=\"g-topbar-inner\"><a href=\"/\" class=\"g-logo\" title=\"gaderno\" aria-label=\"gaderno home\"><img src=\"/static/logo.png\" width=\"32\" height=\"32\" alt=\"\"></a> <span class=\"g-topbar-title\">Agent</span> <span class=\"flex-1\"></span></div></header><main class=\"g-workspace max-w-xl\"><header class=\"mb-6\"><h1 class=\"text-2xl font-semibold tracking-tight text-balance\">Agent access</h1><p class=\"text-sm text-base-content/60 mt-1 max-w-prose\">Paste this into your coding agent. It will fetch <span class=\"font-code\">/SKILL.md</span> with the same token and work on this instance.</p></header><textarea id=\"agent-invite\" class=\"textarea textarea-bordered font-code w-full min-h-40\" readonly aria-label=\"Instruction for the agent\"></textarea><div class=\"mt-3 flex items-center gap-2\"><button type=\"button\" class=\"btn btn-primary\" id=\"agent-copy\">Copy</button> <span class=\"text-sm text-base-content/55\" id=\"agent-copy-status\" aria-live=\"polite\"></span></div></main>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<body class=\"min-h-full bg-base-100 text-base-content text-sm\"><header class=\"g-topbar sticky top-0 z-50 bg-base-100/90 backdrop-blur-sm border-b border-base-300\"><div class=\"g-topbar-inner\"><a href=\"/\" class=\"g-logo\" title=\"gaderno\" aria-label=\"gaderno home\"><img src=\"/static/logo.png\" width=\"32\" height=\"32\" alt=\"\"></a> <span class=\"g-topbar-title\">Agent</span> <span class=\"flex-1\"></span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = agentBoot(d.TokenJSON).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = AgentNav(d.Path).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<script>\n\t\t\t\t(function () {\n\t\t\t\t\tvar boot = window.__GADERNO_AGENT__ || {};\n\t\t\t\t\tvar token = boot.token || \"\";\n\t\t\t\t\tvar origin = location.origin;\n\t\t\t\t\tvar lines = [\n\t\t\t\t\t\t\"Work on this gaderno instance.\",\n\t\t\t\t\t\t\"\",\n\t\t\t\t\t\t\"GET \" + origin + \"/SKILL.md\"\n\t\t\t\t\t];\n\t\t\t\t\tif (token) {\n\t\t\t\t\t\tlines.push(\"Authorization: Bearer \" + token);\n\t\t\t\t\t}\n\t\t\t\t\tlines.push(\"\");\n\t\t\t\t\tif (token) {\n\t\t\t\t\t\tlines.push(\"Follow that skill. Use the same origin and Bearer token on every request. Never put the token in a URL. Never log it.\");\n\t\t\t\t\t} else {\n\t\t\t\t\t\tlines.push(\"Follow that skill. Use the same origin on every request. No access token is configured.\");\n\t\t\t\t\t}\n\t\t\t\t\tvar text = lines.join(\"\\n\");\n\t\t\t\t\tvar area = document.getElementById(\"agent-invite\");\n\t\t\t\t\tif (area) area.value = text;\n\t\t\t\t\tvar btn = document.getElementById(\"agent-copy\");\n\t\t\t\t\tvar status = document.getElementById(\"agent-copy-status\");\n\t\t\t\t\tif (!btn) return;\n\t\t\t\t\tbtn.addEventListener(\"click\", function () {\n\t\t\t\t\t\tfunction ok() {\n\t\t\t\t\t\t\tif (status) status.textContent = \"Copied\";\n\t\t\t\t\t\t}\n\t\t\t\t\t\tfunction fail() {\n\t\t\t\t\t\t\tif (area) area.select();\n\t\t\t\t\t\t\tif (status) status.textContent = \"Select and copy\";\n\t\t\t\t\t\t}\n\t\t\t\t\t\tif (navigator.clipboard && navigator.clipboard.writeText) {\n\t\t\t\t\t\t\tnavigator.clipboard.writeText(text).then(ok).catch(fail);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tfail();\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script></body>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></header><main class=\"g-workspace max-w-xl\"><header class=\"mb-6\"><h1 class=\"text-2xl font-semibold tracking-tight text-balance\">Agent access</h1><p class=\"text-sm text-base-content/60 mt-1 max-w-prose\">Paste this into your coding agent. It will fetch <span class=\"font-code\">/SKILL.md</span> with the same token ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if d.Path != "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "and work on <span class=\"font-code\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(d.Path)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/agent.templ`, Line: 33, Col: 51}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span>.")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "and work on this instance.")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</p></header><textarea id=\"agent-invite\" class=\"textarea textarea-bordered font-code w-full min-h-48\" readonly aria-label=\"Instruction for the agent\"></textarea><div class=\"mt-3 flex items-center gap-2\"><button type=\"button\" class=\"btn btn-primary\" id=\"agent-copy\">Copy</button> <span class=\"text-sm text-base-content/55\" id=\"agent-copy-status\" aria-live=\"polite\"></span></div></main>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = agentBoot(d.TokenJSON, d.PathJSON, d.SessionJSON).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<script>\n\t\t\t\t(function () {\n\t\t\t\t\tvar boot = window.__GADERNO_AGENT__ || {};\n\t\t\t\t\tvar token = boot.token || \"\";\n\t\t\t\t\tvar path = boot.path || \"\";\n\t\t\t\t\tvar sid = boot.session_id || \"\";\n\t\t\t\t\tvar origin = location.origin;\n\t\t\t\t\tvar lines = [\n\t\t\t\t\t\t\"Work on this gaderno instance.\",\n\t\t\t\t\t\t\"\",\n\t\t\t\t\t\t\"GET \" + origin + \"/SKILL.md\"\n\t\t\t\t\t];\n\t\t\t\t\tif (token) {\n\t\t\t\t\t\tlines.push(\"Authorization: Bearer \" + token);\n\t\t\t\t\t}\n\t\t\t\t\tlines.push(\"\");\n\t\t\t\t\tif (token) {\n\t\t\t\t\t\tlines.push(\"Follow that skill. Use the same origin and Bearer token on every request. Never put the token in a URL. Never log it.\");\n\t\t\t\t\t} else {\n\t\t\t\t\t\tlines.push(\"Follow that skill. Use the same origin on every request. No access token is configured.\");\n\t\t\t\t\t}\n\t\t\t\t\tif (sid) {\n\t\t\t\t\t\tlines.push(\"\");\n\t\t\t\t\t\tif (path) {\n\t\t\t\t\t\t\tlines.push(\"Notebook: \" + path);\n\t\t\t\t\t\t}\n\t\t\t\t\t\tlines.push(\"Session: \" + sid);\n\t\t\t\t\t\tlines.push(\"Use GET /api/sessions/\" + sid + \" and mutate that session. If it 404s, POST /api/sessions with the notebook path and use the new session_id.\");\n\t\t\t\t\t} else if (path) {\n\t\t\t\t\t\tlines.push(\"\");\n\t\t\t\t\t\tlines.push(\"Notebook: \" + path);\n\t\t\t\t\t\tlines.push(\"POST /api/sessions {\\\"path\\\":\\\"\" + path + \"\\\"} and keep session_id.\");\n\t\t\t\t\t}\n\t\t\t\t\tvar text = lines.join(\"\\n\");\n\t\t\t\t\tvar area = document.getElementById(\"agent-invite\");\n\t\t\t\t\tif (area) area.value = text;\n\t\t\t\t\tvar btn = document.getElementById(\"agent-copy\");\n\t\t\t\t\tvar status = document.getElementById(\"agent-copy-status\");\n\t\t\t\t\tif (!btn) return;\n\t\t\t\t\tbtn.addEventListener(\"click\", function () {\n\t\t\t\t\t\tfunction ok() {\n\t\t\t\t\t\t\tif (status) status.textContent = \"Copied\";\n\t\t\t\t\t\t}\n\t\t\t\t\t\tfunction fail() {\n\t\t\t\t\t\t\tif (area) area.select();\n\t\t\t\t\t\t\tif (status) status.textContent = \"Select and copy\";\n\t\t\t\t\t\t}\n\t\t\t\t\t\tif (navigator.clipboard && navigator.clipboard.writeText) {\n\t\t\t\t\t\t\tnavigator.clipboard.writeText(text).then(ok).catch(fail);\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tfail();\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t})();\n\t\t\t</script></body>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout.Document("Agent — gaderno").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout.Document("Agent — gaderno").Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

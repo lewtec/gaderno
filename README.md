@@ -77,7 +77,7 @@ Agents talk to the same server over request-response HTTP (curl). Not MCP, not t
 3. `POST /api/sessions` with the notebook filename; keep `session_id`.
 4. Mutate under `/api/sessions/{id}/…` (cells, execute, chat, save). Kernel pick stays in the UI.
 
-The workspace **Agent** page copies an invite: origin, token, and `GET /SKILL.md` (token required when configured). That file is the procedure.
+The **Agent** control is in the topbar. From a notebook it copies an invite pinned to that session id. `GET /SKILL.md` (token required when configured) is the procedure.
 
 ### CLI
 

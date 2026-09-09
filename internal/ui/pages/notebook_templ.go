@@ -83,20 +83,28 @@ func Notebook(d NotebookData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span> <span class=\"flex-1 min-w-1\"></span> <button type=\"button\" class=\"g-icon-btn g-session-btn\" id=\"btn-session\" title=\"Session & kernel\" aria-label=\"Session status and kernel\"><span class=\"g-session-dot\" id=\"session-dot\" data-state=\"off\" aria-hidden=\"true\"></span> <span class=\"g-session-label hidden sm:inline\" id=\"session-label\">Offline</span></button> <button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat\" aria-controls=\"chat-panel\" aria-expanded=\"false\" title=\"Chat\" aria-label=\"Open chat\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg></button> <details class=\"dropdown dropdown-end\" id=\"avatar-menu\"><summary class=\"g-icon-btn\" aria-label=\"Account menu\" title=\"Menu\"><span class=\"g-avatar\" id=\"user-avatar\" aria-hidden=\"true\">·</span></summary><ul class=\"menu dropdown-content bg-base-100 rounded-box z-50 w-56 p-2 shadow-md border border-base-300 text-sm mt-1\"><li class=\"menu-title text-xs px-2\">Display name</li><li class=\"px-2 pb-2\"><input type=\"text\" id=\"display-name\" class=\"input input-bordered input-sm w-full\" placeholder=\"Your name\" autocomplete=\"nickname\"></li><li class=\"menu-title text-xs\">Theme</li><li><button type=\"button\" class=\"theme-set\" data-gaderno-theme=\"gaderno-light\">Light</button></li><li><button type=\"button\" class=\"theme-set\" data-gaderno-theme=\"gaderno-dark\">Dark</button></li><li class=\"menu-title text-xs\">Notebook</li><li><button type=\"button\" id=\"menu-kernel\">Kernel…</button></li><li><label class=\"flex items-center gap-2 cursor-pointer px-1 py-1\"><input type=\"checkbox\" id=\"menu-trust\" class=\"checkbox checkbox-sm\"> <span>Trust HTML outputs</span></label></li><li><button type=\"button\" id=\"menu-force-save\">Force save</button></li><li><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span> <span class=\"flex-1 min-w-1\"></span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = AgentNav(d.Path).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<button type=\"button\" class=\"g-icon-btn g-session-btn\" id=\"btn-session\" title=\"Session & kernel\" aria-label=\"Session status and kernel\"><span class=\"g-session-dot\" id=\"session-dot\" data-state=\"off\" aria-hidden=\"true\"></span> <span class=\"g-session-label hidden sm:inline\" id=\"session-label\">Offline</span></button> <button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat\" aria-controls=\"chat-panel\" aria-expanded=\"false\" title=\"Chat\" aria-label=\"Open chat\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg></button> <details class=\"dropdown dropdown-end\" id=\"avatar-menu\"><summary class=\"g-icon-btn\" aria-label=\"Account menu\" title=\"Menu\"><span class=\"g-avatar\" id=\"user-avatar\" aria-hidden=\"true\">·</span></summary><ul class=\"menu dropdown-content bg-base-100 rounded-box z-50 w-56 p-2 shadow-md border border-base-300 text-sm mt-1\"><li class=\"menu-title text-xs px-2\">Display name</li><li class=\"px-2 pb-2\"><input type=\"text\" id=\"display-name\" class=\"input input-bordered input-sm w-full\" placeholder=\"Your name\" autocomplete=\"nickname\"></li><li class=\"menu-title text-xs\">Theme</li><li><button type=\"button\" class=\"theme-set\" data-gaderno-theme=\"gaderno-light\">Light</button></li><li><button type=\"button\" class=\"theme-set\" data-gaderno-theme=\"gaderno-dark\">Dark</button></li><li class=\"menu-title text-xs\">Notebook</li><li><button type=\"button\" id=\"menu-kernel\">Kernel…</button></li><li><label class=\"flex items-center gap-2 cursor-pointer px-1 py-1\"><input type=\"checkbox\" id=\"menu-trust\" class=\"checkbox checkbox-sm\"> <span>Trust HTML outputs</span></label></li><li><button type=\"button\" id=\"menu-force-save\">Force save</button></li><li><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 templ.SafeURL
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(notebookExportURL(d.Path))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 57, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/notebook.templ`, Line: 58, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" id=\"menu-export\">Export .ipynb</a></li><li><a href=\"/agent\">Agent access</a></li><li class=\"menu-title text-xs\">About</li><li><span class=\"text-xs text-base-content/55 pointer-events-none break-all\" id=\"menu-about-path\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" id=\"menu-export\">Export .ipynb</a></li><li class=\"menu-title text-xs\">About</li><li><span class=\"text-xs text-base-content/55 pointer-events-none break-all\" id=\"menu-about-path\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -109,7 +117,7 @@ func Notebook(d NotebookData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</span></li></ul></details></div></header><div class=\"flex-1 min-h-0 relative flex flex-col\"><main class=\"flex-1 min-h-0 overflow-y-auto\" id=\"cells-scroll\"><div class=\"g-cells\" id=\"cells\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span></li></ul></details></div></header><div class=\"flex-1 min-h-0 relative flex flex-col\"><main class=\"flex-1 min-h-0 overflow-y-auto\" id=\"cells-scroll\"><div class=\"g-cells\" id=\"cells\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -119,7 +127,7 @@ func Notebook(d NotebookData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -128,17 +136,17 @@ func Notebook(d NotebookData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " <div class=\"cell-insert cell-insert-end\" data-insert-end role=\"group\" aria-label=\"Add cell at end\"><button type=\"button\" class=\"cell-insert-btn\" data-type=\"code\" title=\"Add code cell\" aria-label=\"Add code cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Code</span></button> <button type=\"button\" class=\"cell-insert-btn\" data-type=\"markdown\" title=\"Add markdown cell\" aria-label=\"Add markdown cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Markdown</span></button></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"cell-insert cell-insert-end\" data-insert-end role=\"group\" aria-label=\"Add cell at end\"><button type=\"button\" class=\"cell-insert-btn\" data-type=\"code\" title=\"Add code cell\" aria-label=\"Add code cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Code</span></button> <button type=\"button\" class=\"cell-insert-btn\" data-type=\"markdown\" title=\"Add markdown cell\" aria-label=\"Add markdown cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Markdown</span></button></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"g-empty g-empty-cells\" id=\"empty-notebook\"><p class=\"font-medium\">Empty notebook</p><p class=\"text-sm text-base-content/55 mt-1 mb-4\">Add a first cell to begin.</p><div class=\"flex flex-wrap gap-2 justify-center\"><button type=\"button\" class=\"btn btn-primary btn-sm gap-1\" id=\"btn-first-code\"><span aria-hidden=\"true\">+</span> Code</button> <button type=\"button\" class=\"btn btn-ghost btn-sm gap-1\" id=\"btn-first-md\"><span aria-hidden=\"true\">+</span> Markdown</button></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"g-empty g-empty-cells\" id=\"empty-notebook\"><p class=\"font-medium\">Empty notebook</p><p class=\"text-sm text-base-content/55 mt-1 mb-4\">Add a first cell to begin.</p><div class=\"flex flex-wrap gap-2 justify-center\"><button type=\"button\" class=\"btn btn-primary btn-sm gap-1\" id=\"btn-first-code\"><span aria-hidden=\"true\">+</span> Code</button> <button type=\"button\" class=\"btn btn-ghost btn-sm gap-1\" id=\"btn-first-md\"><span aria-hidden=\"true\">+</span> Markdown</button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></main><aside id=\"chat-panel\" class=\"chat-panel\" data-open=\"false\" aria-label=\"Session chat\" aria-hidden=\"true\"><div class=\"chat-panel-inner\"><div class=\"chat-panel-head\"><div class=\"min-w-0\"><div class=\"text-sm font-semibold leading-tight\">Chat</div><div class=\"text-xs text-base-content/50 leading-tight truncate\">Session only · not saved</div></div><button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat-close\" aria-label=\"Close chat\" title=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><div class=\"chat-panel-log\" id=\"chat-log\" aria-live=\"polite\"></div><form class=\"chat-panel-form\" id=\"chat-form\"><input type=\"text\" id=\"chat-input\" placeholder=\"Message…\" aria-label=\"Chat message\" autocomplete=\"off\" class=\"input input-bordered input-sm min-w-0 flex-1\"> <button class=\"btn btn-primary btn-sm shrink-0\" type=\"submit\">Send</button></form></div></aside></div><dialog id=\"kernel-dialog\" class=\"modal modal-bottom sm:modal-middle\"><div class=\"modal-box p-0 gap-0 w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-box sm:rounded-box shadow-lg\"><div class=\"shrink-0 px-4 pt-4 pb-3 border-b border-base-300\"><div class=\"flex items-start justify-between gap-2\"><div class=\"min-w-0\"><h3 class=\"font-semibold text-base leading-tight\">Kernel</h3><p class=\"text-xs text-base-content/55 mt-1 leading-snug\">Pick a runtime. It starts on first <span class=\"font-medium\">play</span>, not on select.</p></div><form method=\"dialog\" class=\"shrink-0\"><button class=\"g-icon-btn\" aria-label=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></form></div><label class=\"input input-bordered input-sm flex items-center gap-2 mt-3 h-9 min-h-0 bg-base-200\"><span class=\"text-base-content/40 text-xs\" aria-hidden=\"true\">⌕</span> <input type=\"search\" id=\"kernel-filter\" class=\"grow bg-transparent border-0 outline-none text-sm\" placeholder=\"Filter by name…\" autocomplete=\"off\"></label></div><div id=\"kernel-list\" class=\"flex-1 min-h-0 overflow-y-auto text-sm\"><div class=\"flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs\"><span class=\"loading loading-spinner loading-xs\"></span> Loading kernels…</div></div><div class=\"shrink-0 px-4 py-3 border-t border-base-300 flex items-center justify-between gap-2 bg-base-200/40\"><span class=\"text-xs text-base-content/50 truncate\" id=\"kernel-dialog-hint\">Jupyter specs and optional uv Pythons</span><form method=\"dialog\"><button class=\"btn btn-sm btn-ghost\">Cancel</button></form></div></div><form method=\"dialog\" class=\"modal-backdrop bg-black/40\"><button>close</button></form></dialog><div id=\"chat-toasts\" class=\"toast toast-end toast-bottom z-[60]\" aria-live=\"polite\" aria-relevant=\"additions\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></main><aside id=\"chat-panel\" class=\"chat-panel\" data-open=\"false\" aria-label=\"Session chat\" aria-hidden=\"true\"><div class=\"chat-panel-inner\"><div class=\"chat-panel-head\"><div class=\"min-w-0\"><div class=\"text-sm font-semibold leading-tight\">Chat</div><div class=\"text-xs text-base-content/50 leading-tight truncate\">Session only · not saved</div></div><button type=\"button\" class=\"g-icon-btn\" id=\"btn-chat-close\" aria-label=\"Close chat\" title=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><div class=\"chat-panel-log\" id=\"chat-log\" aria-live=\"polite\"></div><form class=\"chat-panel-form\" id=\"chat-form\"><input type=\"text\" id=\"chat-input\" placeholder=\"Message…\" aria-label=\"Chat message\" autocomplete=\"off\" class=\"input input-bordered input-sm min-w-0 flex-1\"> <button class=\"btn btn-primary btn-sm shrink-0\" type=\"submit\">Send</button></form></div></aside></div><dialog id=\"kernel-dialog\" class=\"modal modal-bottom sm:modal-middle\"><div class=\"modal-box p-0 gap-0 w-full sm:max-w-lg max-h-[85vh] flex flex-col rounded-t-box sm:rounded-box shadow-lg\"><div class=\"shrink-0 px-4 pt-4 pb-3 border-b border-base-300\"><div class=\"flex items-start justify-between gap-2\"><div class=\"min-w-0\"><h3 class=\"font-semibold text-base leading-tight\">Kernel</h3><p class=\"text-xs text-base-content/55 mt-1 leading-snug\">Pick a runtime. It starts on first <span class=\"font-medium\">play</span>, not on select.</p></div><form method=\"dialog\" class=\"shrink-0\"><button class=\"g-icon-btn\" aria-label=\"Close\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></form></div><label class=\"input input-bordered input-sm flex items-center gap-2 mt-3 h-9 min-h-0 bg-base-200\"><span class=\"text-base-content/40 text-xs\" aria-hidden=\"true\">⌕</span> <input type=\"search\" id=\"kernel-filter\" class=\"grow bg-transparent border-0 outline-none text-sm\" placeholder=\"Filter by name…\" autocomplete=\"off\"></label></div><div id=\"kernel-list\" class=\"flex-1 min-h-0 overflow-y-auto text-sm\"><div class=\"flex items-center justify-center gap-2 py-10 text-base-content/50 text-xs\"><span class=\"loading loading-spinner loading-xs\"></span> Loading kernels…</div></div><div class=\"shrink-0 px-4 py-3 border-t border-base-300 flex items-center justify-between gap-2 bg-base-200/40\"><span class=\"text-xs text-base-content/50 truncate\" id=\"kernel-dialog-hint\">Jupyter specs and optional uv Pythons</span><form method=\"dialog\"><button class=\"btn btn-sm btn-ghost\">Cancel</button></form></div></div><form method=\"dialog\" class=\"modal-backdrop bg-black/40\"><button>close</button></form></dialog><div id=\"chat-toasts\" class=\"toast toast-end toast-bottom z-[60]\" aria-live=\"polite\" aria-relevant=\"additions\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -146,7 +154,7 @@ func Notebook(d NotebookData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<script type=\"module\" src=\"/static/app.js\"></script></body>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<script type=\"module\" src=\"/static/app.js\"></script></body>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -181,7 +189,7 @@ func cellInsert(beforeID string) templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"cell-insert\" data-insert-before=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"cell-insert\" data-insert-before=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -194,7 +202,7 @@ func cellInsert(beforeID string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" role=\"group\" aria-label=\"Insert cell\"><button type=\"button\" class=\"cell-insert-btn\" data-type=\"code\" title=\"Insert code cell\" aria-label=\"Insert code cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Code</span></button> <button type=\"button\" class=\"cell-insert-btn\" data-type=\"markdown\" title=\"Insert markdown cell\" aria-label=\"Insert markdown cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Markdown</span></button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" role=\"group\" aria-label=\"Insert cell\"><button type=\"button\" class=\"cell-insert-btn\" data-type=\"code\" title=\"Insert code cell\" aria-label=\"Insert code cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Code</span></button> <button type=\"button\" class=\"cell-insert-btn\" data-type=\"markdown\" title=\"Insert markdown cell\" aria-label=\"Insert markdown cell\"><span aria-hidden=\"true\">+</span><span class=\"cell-insert-label\">Markdown</span></button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -223,7 +231,7 @@ func cellRow(c CellView) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<article class=\"cell-row\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<article class=\"cell-row\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -236,7 +244,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" data-cell-type=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" data-cell-type=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -249,12 +257,12 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"><div class=\"cell-gutter\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><div class=\"cell-gutter\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if c.Type == "code" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button type=\"button\" class=\"cell-play run\" data-cell-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<button type=\"button\" class=\"cell-play run\" data-cell-id=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -267,17 +275,17 @@ func cellRow(c CellView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" title=\"Run cell (Shift+Enter)\" aria-label=\"Run cell\"><svg class=\"play-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\"></path></svg> <span class=\"loading loading-spinner loading-xs play-spin\" hidden></span></button> <span class=\"cell-exec-count font-code tabular\" data-count></span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" title=\"Run cell (Shift+Enter)\" aria-label=\"Run cell\"><svg class=\"play-icon\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\"></path></svg> <span class=\"loading loading-spinner loading-xs play-spin\" hidden></span></button> <span class=\"cell-exec-count font-code tabular\" data-count></span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"cell-md-mark\" title=\"Markdown\" aria-hidden=\"true\">¶</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"cell-md-mark\" title=\"Markdown\" aria-hidden=\"true\">¶</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div><div class=\"cell-body min-w-0\"><div class=\"cell-toolbar\"><span class=\"flex-1\"></span> <details class=\"dropdown dropdown-end cell-menu\"><summary class=\"g-icon-btn g-icon-btn-sm\" title=\"Cell menu\" aria-label=\"Cell menu\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.5\"></circle><circle cx=\"12\" cy=\"12\" r=\"1.5\"></circle><circle cx=\"19\" cy=\"12\" r=\"1.5\"></circle></svg></summary><ul class=\"menu dropdown-content bg-base-100 rounded-box z-50 w-44 p-1 shadow-md border border-base-300 text-xs\"><li><button type=\"button\" class=\"cell-type-set\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><div class=\"cell-body min-w-0\"><div class=\"cell-toolbar\"><span class=\"flex-1\"></span> <details class=\"dropdown dropdown-end cell-menu\"><summary class=\"g-icon-btn g-icon-btn-sm\" title=\"Cell menu\" aria-label=\"Cell menu\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1.5\"></circle><circle cx=\"12\" cy=\"12\" r=\"1.5\"></circle><circle cx=\"19\" cy=\"12\" r=\"1.5\"></circle></svg></summary><ul class=\"menu dropdown-content bg-base-100 rounded-box z-50 w-44 p-1 shadow-md border border-base-300 text-xs\"><li><button type=\"button\" class=\"cell-type-set\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -290,7 +298,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" data-type=\"code\">Type: Code</button></li><li><button type=\"button\" class=\"cell-type-set\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-type=\"code\">Type: Code</button></li><li><button type=\"button\" class=\"cell-type-set\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -303,7 +311,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-type=\"markdown\">Type: Markdown</button></li><li><hr class=\"my-0.5 border-base-300\"></li><li><button type=\"button\" class=\"cell-up\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-type=\"markdown\">Type: Markdown</button></li><li><hr class=\"my-0.5 border-base-300\"></li><li><button type=\"button\" class=\"cell-up\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -316,7 +324,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\">Move up</button></li><li><button type=\"button\" class=\"cell-down\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\">Move up</button></li><li><button type=\"button\" class=\"cell-down\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -329,7 +337,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\">Move down</button></li><li><hr class=\"my-0.5 border-base-300\"></li><li><button type=\"button\" class=\"cell-del text-error\" data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">Move down</button></li><li><hr class=\"my-0.5 border-base-300\"></li><li><button type=\"button\" class=\"cell-del text-error\" data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -342,12 +350,12 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">Delete</button></li></ul></details></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">Delete</button></li></ul></details></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if c.Type == "markdown" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<div class=\"md-preview\" tabindex=\"0\" role=\"button\" aria-label=\"Edit markdown\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"md-preview\" tabindex=\"0\" role=\"button\" aria-label=\"Edit markdown\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -367,7 +375,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<div class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -380,7 +388,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" data-gaderno-editor data-cell-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" data-gaderno-editor data-cell-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -393,7 +401,7 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" data-lang=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" data-lang=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -406,27 +414,27 @@ func cellRow(c CellView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if c.Type == "markdown" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " hidden")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " hidden")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if c.Type == "code" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div class=\"out-block\" hidden></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"out-block\" hidden></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</div></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

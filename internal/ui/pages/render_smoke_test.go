@@ -21,7 +21,7 @@ func TestWorkspaceRender(t *testing.T) {
 
 func TestAgentRender(t *testing.T) {
 	var buf bytes.Buffer
-	if err := Agent(AgentData{TokenJSON: `""`}).Render(t.Context(), &buf); err != nil {
+	if err := Agent(AgentData{TokenJSON: `""`, PathJSON: `""`, SessionJSON: `""`}).Render(t.Context(), &buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -49,7 +49,7 @@ func TestNotebookRenderJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `cell-result-json`, `/static/app.js`, `"python3"`, `print(1)`, `"stdout"`, `id="chat-toasts"`, `toast toast-end toast-bottom`} {
+	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `cell-result-json`, `/static/app.js`, `"python3"`, `print(1)`, `"stdout"`, `id="chat-toasts"`, `toast toast-end toast-bottom`, `/agent?path=demo.ipynb`} {
 		if !strings.Contains(out, s) {
 			t.Errorf("missing %q", s)
 		}

@@ -27,3 +27,10 @@ func notebookOpenURL(name string) templ.SafeURL {
 func notebookExportURL(path string) templ.SafeURL {
 	return templ.URL("/api/notebooks/" + escapeNotebookPath(path) + "?download=1")
 }
+
+func agentPageURL(path string) templ.SafeURL {
+	if strings.TrimSpace(path) == "" {
+		return templ.URL("/agent")
+	}
+	return templ.URL("/agent?path=" + url.QueryEscape(path))
+}
