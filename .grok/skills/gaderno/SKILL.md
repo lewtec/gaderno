@@ -23,7 +23,7 @@ The live document is on the server. Mutate it with HTTP. Do not open the WebSock
 2. `POST /api/sessions` with `{"path":"<filename>"}`. Keep `session_id`. Mutators use `/api/sessions/$SID/…` — not the filename.
 3. If a session route returns 404, the hub is gone. Open again by path.
 4. Insert (`POST …/cells`) or PATCH source. Use cell ids from the response. Do not guess ids.
-5. If `kernel.needs_kernel`, bind a name from `GET /api/kernels` via `POST …/kernel`.
+5. If `kernel.needs_kernel`, stop. Tell the user to pick a kernel in the UI. Do not bind or switch a kernel.
 6. `POST /api/sessions/$SID/cells/$CID/execute`. Read `stdout`, `stderr`, `ename` from that response.
 7. Fix the same cell and execute again. One cell per execute. Prefer small cells.
 

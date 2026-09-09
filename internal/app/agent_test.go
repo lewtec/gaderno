@@ -92,6 +92,9 @@ func TestAgentContractRoute(t *testing.T) {
 			t.Fatalf("contract missing %q", needle)
 		}
 	}
+	if strings.Contains(body, "/api/sessions/$SID/kernel") {
+		t.Fatal("contract must not offer kernel bind")
+	}
 }
 
 func TestOpenSessionJoinsSameHub(t *testing.T) {
@@ -342,6 +345,51 @@ func TestExecuteWritesSourceBeforeKernel(t *testing.T) {
 	}
 	if src := hub.Doc.Source(id); src != "print(9)" {
 		t.Fatalf("source after failed execute %q", src)
+	}
+}
+
+func TestExecuteIgnoresKernelField(t *testing.T) {
+	mux, reg, st := newAgentMux(t)
+	nb := document.NewEmpty()
+	nb.Metadata["kernelspec"] = map[string]any{
+		"name":         "gaderno-test-missing",
+		"display_name": "missing",
+	}
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	opened := openSessionByPath(t, mux, "n.ipynb")
+	id := opened.Cells[0].ID
+
+	// A kernel name in the body must not bind. Missing spec would be 409 if
+	// BindKernel ran; no bound spec is 400.
+	rec := doJSON(t, mux, http.MethodPost, "/api/sessions/"+opened.SessionID+"/cells/"+id+"/execute", map[string]any{
+		"kernel": "gaderno-test-missing",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("execute status %d want 400 body %s", rec.Code, rec.Body.String())
+	}
+	hub, err := reg.GetByID(opened.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stt := hub.Status()
+	if !stt.NeedsPick || stt.BoundName != "" {
+		t.Fatalf("kernel was bound from execute body: %+v", stt)
+	}
+}
+
+func TestAgentKernelBindRouteGone(t *testing.T) {
+	mux, _, st := newAgentMux(t)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	sid := openSessionByPath(t, mux, "n.ipynb").SessionID
+	rec := doJSON(t, mux, http.MethodPost, "/api/sessions/"+sid+"/kernel", map[string]any{
+		"name": "python3",
+	})
+	if rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("kernel bind status %d want 404/405 body %s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -673,9 +673,8 @@ Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
 | PATCH | `/api/sessions/{id}/cells/{cell}` | set source and/or type |
 | POST | `/api/sessions/{id}/cells/{cell}/move` | reorder cell |
 | DELETE | `/api/sessions/{id}/cells/{cell}` | delete cell |
-| POST | `/api/sessions/{id}/cells/{cell}/execute` | run cell; optional `source` written first |
+| POST | `/api/sessions/{id}/cells/{cell}/execute` | run cell; optional `source` written first; uses the bound kernel only |
 | POST | `/api/sessions/{id}/interrupt` | interrupt running kernel |
-| POST | `/api/sessions/{id}/kernel` | bind kernelspec (lazy spawn) |
 | POST | `/api/sessions/{id}/save` | force ipynb flush |
 | GET | `/api/kernels` | catalog |
 | POST | `/api/kernel/bind` | bind kernelspec (UI; path in body) |
