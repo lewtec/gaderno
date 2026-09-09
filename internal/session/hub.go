@@ -521,9 +521,15 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 
 	var displays []kernel.DisplayData
 	res, err := k.ExecuteOpts(ctx, src, kernel.ExecuteOpts{
-		OnStream: onStream,
+		OnStream: func(ch kernel.StreamChunk) {
+			h.broadcastExecStream(cellID, ch)
+			if onStream != nil {
+				onStream(ch)
+			}
+		},
 		OnDisplay: func(dd kernel.DisplayData) {
 			displays = append(displays, dd)
+			h.broadcastExecDisplay(cellID, dd)
 			if onDisplay != nil {
 				onDisplay(dd)
 			}
@@ -535,6 +541,8 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 		h.scheduleSave()
 	}
 
+	h.broadcastExecResult(cellID, res)
+
 	h.mu.Lock()
 	if h.kernel != nil {
 		h.phase = PhaseReady
@@ -543,6 +551,40 @@ func (h *Hub) ExecuteCell(ctx context.Context, cellID string, onStream func(kern
 	h.mu.Unlock()
 	h.broadcastKernelStatus(st)
 	return res, err
+}
+
+func (h *Hub) broadcastExecStream(cellID string, ch kernel.StreamChunk) {
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
+		"type":    "exec.stream",
+		"cell_id": cellID,
+		"name":    ch.Name,
+		"text":    ch.Text,
+	}), "")
+}
+
+func (h *Hub) broadcastExecDisplay(cellID string, dd kernel.DisplayData) {
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
+		"type":        "exec.display",
+		"cell_id":     cellID,
+		"output_type": dd.OutputType,
+		"data":        dd.Data,
+		"metadata":    dd.Metadata,
+		"transient":   dd.Transient,
+	}), "")
+}
+
+func (h *Hub) broadcastExecResult(cellID string, res kernel.ExecuteResult) {
+	h.BroadcastJSON(jsonutil.Bytes(map[string]any{
+		"type":            "exec.result",
+		"cell_id":         cellID,
+		"status":          res.Status,
+		"stdout":          res.Stdout,
+		"stderr":          res.Stderr,
+		"ename":           res.Ename,
+		"evalue":          res.Evalue,
+		"traceback":       res.Traceback,
+		"execution_count": res.ExecutionCount,
+	}), "")
 }
 
 func execCountPtr(res kernel.ExecuteResult) *int {
