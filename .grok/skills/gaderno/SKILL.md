@@ -26,6 +26,7 @@ The live document is on the server. Mutate it with HTTP. Do not open the WebSock
 5. If `kernel.needs_kernel`, stop. Tell the user to pick a kernel in the UI. Do not bind or switch a kernel.
 6. `POST /api/sessions/$SID/cells/$CID/execute`. Read `stdout`, `stderr`, `ename` from that response.
 7. Fix the same cell and execute again. One cell per execute. Prefer small cells.
-8. `POST /api/sessions/$SID/chat` with `{"text":"…"}` so they see you in the session chat panel. `GET …/chat` reads the RAM tail (what they typed there). Author is always `agent`.
+8. Need a Python package? Run `!uv pip install <pkg>` in a code cell. Do not use bare `pip`, `conda`, or the host package manager.
+9. `POST /api/sessions/$SID/chat` with `{"text":"…"}` so they see you in the session chat panel. `GET …/chat` reads the RAM tail (what they typed there). Author is always `agent`.
 
 Tell the user the notebook path and the UI URL (`<url>/n/<path>`) so they can watch.
