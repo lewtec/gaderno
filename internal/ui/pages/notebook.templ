@@ -24,6 +24,7 @@ templ Notebook(d NotebookData) {
 					<a href="/" class="g-logo" title="gaderno" aria-label="gaderno home"><img src="/static/logo.png" width="32" height="32" alt=""/></a>
 					<span class="g-topbar-path font-code truncate min-w-0" title={ d.Path }>{ d.Path }</span>
 					<span class="flex-1 min-w-1"></span>
+					@AgentNav(d.Path)
 					<button type="button" class="g-icon-btn g-session-btn" id="btn-session" title="Session & kernel" aria-label="Session status and kernel">
 						<span class="g-session-dot" id="session-dot" data-state="off" aria-hidden="true"></span>
 						<span class="g-session-label hidden sm:inline" id="session-label">Offline</span>
@@ -55,7 +56,6 @@ templ Notebook(d NotebookData) {
 							</li>
 							<li><button type="button" id="menu-force-save">Force save</button></li>
 							<li><a href={ notebookExportURL(d.Path) } id="menu-export">Export .ipynb</a></li>
-							<li><a href="/agent">Agent access</a></li>
 							<li class="menu-title text-xs">About</li>
 							<li><span class="text-xs text-base-content/55 pointer-events-none break-all" id="menu-about-path">{ d.Path }</span></li>
 						</ul>

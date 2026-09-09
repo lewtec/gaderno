@@ -39,12 +39,45 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry, token string
 	})
 
 	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
-		raw, err := json.Marshal(token)
+		path := strings.TrimSpace(r.URL.Query().Get("path"))
+		sid := strings.TrimSpace(r.URL.Query().Get("session"))
+		if sid != "" {
+			if hub, err := reg.GetByID(sid); err == nil {
+				path = hub.Path
+				sid = hub.SessionID
+			} else {
+				sid = ""
+			}
+		}
+		if sid == "" && path != "" {
+			if hub, err := reg.GetOrOpen(r.Context(), path); err == nil {
+				path = hub.Path
+				sid = hub.SessionID
+			} else {
+				path = ""
+			}
+		}
+		tokenJSON, err := json.Marshal(token)
 		if err != nil {
 			http.Error(w, "render failed", http.StatusInternalServerError)
 			return
 		}
-		renderTempl(w, r, logger, pages.Agent(pages.AgentData{TokenJSON: string(raw)}))
+		pathJSON, err := json.Marshal(path)
+		if err != nil {
+			http.Error(w, "render failed", http.StatusInternalServerError)
+			return
+		}
+		sidJSON, err := json.Marshal(sid)
+		if err != nil {
+			http.Error(w, "render failed", http.StatusInternalServerError)
+			return
+		}
+		renderTempl(w, r, logger, pages.Agent(pages.AgentData{
+			Path:        path,
+			TokenJSON:   string(tokenJSON),
+			PathJSON:    string(pathJSON),
+			SessionJSON: string(sidJSON),
+		}))
 	})
 
 	mux.HandleFunc("GET /api/agent", func(w http.ResponseWriter, r *http.Request) {

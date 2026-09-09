@@ -33,6 +33,16 @@ func TestNotebookOpenURLEncodesSpaces(t *testing.T) {
 	}
 }
 
+func TestAgentPageURL(t *testing.T) {
+	if got := string(agentPageURL("")); got != "/agent" {
+		t.Fatalf("empty path: %q", got)
+	}
+	got := string(agentPageURL("My Notebook.ipynb"))
+	if got != "/agent?path=My+Notebook.ipynb" && got != "/agent?path=My%20Notebook.ipynb" {
+		t.Fatalf("path query: %q", got)
+	}
+}
+
 func TestNotebookExportURLEncodesSpaces(t *testing.T) {
 	u := string(notebookExportURL("dir/My Notebook.ipynb"))
 	if !strings.HasPrefix(u, "/api/notebooks/dir/My%20Notebook.ipynb") {

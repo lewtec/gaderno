@@ -51,12 +51,12 @@ func cellResultJSON(cellID, json string) templ.Component {
 }
 
 // gadernoBoot emits window.__GADERNO__ from json.Marshal'd path and kernel.
-// agentBoot emits window.__GADERNO_AGENT__ from json.Marshal'd token.
-func agentBoot(tokenJSON string) templ.Component {
+// agentBoot emits window.__GADERNO_AGENT__ from json.Marshal'd fields.
+func agentBoot(tokenJSON, pathJSON, sessionJSON string) templ.Component {
 	return writeComponent(func(w io.Writer) error {
 		_, err := fmt.Fprintf(w,
-			"<script>\nwindow.__GADERNO_AGENT__ = { token: %s };\n</script>\n",
-			tokenJSON)
+			"<script>\nwindow.__GADERNO_AGENT__ = { token: %s, path: %s, session_id: %s };\n</script>\n",
+			tokenJSON, pathJSON, sessionJSON)
 		return err
 	})
 }

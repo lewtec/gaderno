@@ -18,6 +18,10 @@ Do not open the WebSocket. Do not rewrite `.ipynb` files on disk.
 
 ## Working loop
 
+If the invite names a **Session** id, use that hub: `GET /api/sessions/$SID`. Mutate it. If that id 404s, `POST /api/sessions` with the invite's notebook path and use the new `session_id`.
+
+Otherwise:
+
 1. List or create a notebook. Keep the filename.
 2. `POST /api/sessions` with `{"path":"<filename>"}`. Keep `session_id`. Mutators use `/api/sessions/$SID/…` — not the filename.
 3. If a session route returns 404, the hub is gone. Open again by path.
