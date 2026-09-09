@@ -68,6 +68,17 @@ gaderno serve ./notebooks --listen 127.0.0.1:8765 --token "$GADERNO_TOKEN"
 
 Non-loopback bind without a token is refused unless you pass `--i-understand` (open RCE as the server OS user).
 
+### Agent HTTP
+
+Agents talk to the same server over request-response HTTP (curl). Not MCP, not the WebSocket.
+
+1. Set `GADERNO_URL` (no trailing slash) and `GADERNO_TOKEN` if the server has a token.
+2. `GET $GADERNO_URL/api/agent` — route list and curl examples.
+3. `POST /api/sessions` with the notebook filename; keep `session_id`.
+4. Mutate under `/api/sessions/{id}/…` (cells, execute, kernel, save).
+
+A project skill (`.grok/skills/gaderno`) tells coding agents to fetch that contract and follow it.
+
 ### CLI
 
 | Command | Purpose |

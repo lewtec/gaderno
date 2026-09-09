@@ -7,10 +7,11 @@ import (
 	"github.com/lucasew/gaderno/internal/store"
 )
 
-// Registry holds live hubs keyed by notebook relative path.
+// Registry holds live hubs keyed by notebook relative path and by session id.
 type Registry struct {
 	mu    sync.Mutex
-	hubs  map[string]*Hub
+	hubs  map[string]*Hub // CleanRel path → hub
+	byID  map[string]*Hub // SessionID → hub
 	store *store.Store
 	root  string
 }
@@ -19,6 +20,7 @@ type Registry struct {
 func NewRegistry(st *store.Store, root string) *Registry {
 	return &Registry{
 		hubs:  make(map[string]*Hub),
+		byID:  make(map[string]*Hub),
 		store: st,
 		root:  root,
 	}
@@ -59,8 +61,34 @@ func (r *Registry) GetOrOpen(ctx context.Context, rel string) (*Hub, error) {
 		return existing, nil
 	}
 	r.hubs[rel] = h
+	r.byID[h.SessionID] = h
 	r.mu.Unlock()
 	return h, nil
+}
+
+// GetByID returns the live hub for a session id, or ErrSessionNotFound.
+func (r *Registry) GetByID(id string) (*Hub, error) {
+	if id == "" {
+		return nil, ErrSessionNotFound
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	h, ok := r.byID[id]
+	if !ok {
+		return nil, ErrSessionNotFound
+	}
+	return h, nil
+}
+
+// Hubs returns a snapshot of live hubs (path-keyed, one per open notebook).
+func (r *Registry) Hubs() []*Hub {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*Hub, 0, len(r.hubs))
+	for _, h := range r.hubs {
+		out = append(out, h)
+	}
+	return out
 }
 
 // CloseAll shuts down every hub.
@@ -70,6 +98,7 @@ func (r *Registry) CloseAll(ctx context.Context) {
 	r.mu.Lock()
 	hubs := r.hubs
 	r.hubs = make(map[string]*Hub)
+	r.byID = make(map[string]*Hub)
 	r.mu.Unlock()
 	for _, h := range hubs {
 		if err := h.Close(ctx); err != nil {

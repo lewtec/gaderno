@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -167,4 +168,36 @@ func TestCloseAllClearsRegistry(t *testing.T) {
 		t.Fatal("expected hub after re-open")
 	}
 	reg.CloseAll(t.Context())
+}
+
+func TestGetByID(t *testing.T) {
+	dir := t.TempDir()
+	st := store.New(dir)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	reg := NewRegistry(st, dir)
+	defer reg.CloseAll(t.Context())
+
+	if _, err := reg.GetByID(""); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("empty id: %v", err)
+	}
+	if _, err := reg.GetByID("missing"); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("missing: %v", err)
+	}
+
+	h, err := reg.GetOrOpen(t.Context(), "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reg.GetByID(h.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != h {
+		t.Fatalf("GetByID returned a different hub")
+	}
+	if len(reg.Hubs()) != 1 || reg.Hubs()[0] != h {
+		t.Fatalf("Hubs snapshot")
+	}
 }

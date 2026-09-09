@@ -98,9 +98,10 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 
 	mux.HandleFunc("POST /api/execute", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Path   string `json:"path"`
-			CellID string `json:"cell_id"`
-			Kernel string `json:"kernel"`
+			Path   string  `json:"path"`
+			CellID string  `json:"cell_id"`
+			Kernel string  `json:"kernel"`
+			Source *string `json:"source"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Path == "" || body.CellID == "" {
 			http.Error(w, "path and cell_id required", http.StatusBadRequest)
@@ -110,15 +111,26 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 		if !ok {
 			return
 		}
+		if err := requireCell(hub, body.CellID); err != nil {
+			writeHubError(w, err)
+			return
+		}
+		// Write source first so a kernel failure still keeps the edit.
+		if body.Source != nil {
+			if err := hub.SetCellSource(body.CellID, *body.Source, ""); err != nil {
+				writeHubError(w, err)
+				return
+			}
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 		defer cancel()
 		if err := hub.EnsureKernel(ctx, body.Kernel); err != nil {
-			http.Error(w, "kernel: "+err.Error(), http.StatusBadGateway)
+			writeEnsureKernelError(w, err)
 			return
 		}
 		res, err := hub.ExecuteCell(ctx, body.CellID, nil, nil)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			writeHubError(w, err)
 			return
 		}
 		writeJSON(w, res)
@@ -149,6 +161,17 @@ func registerNotebookRoutes(mux *http.ServeMux, st *store.Store, reg *session.Re
 			if _, err := w.Write(raw); err != nil {
 				return
 			}
+			return
+		}
+		if r.URL.Query().Get("view") == "agent" {
+			if hub, err := reg.GetOrOpen(r.Context(), path); err == nil {
+				writeJSON(w, agentNotebookFromHub(hub))
+				return
+			}
+			writeJSON(w, agentNotebookFrom(path, nb, session.KernelStatus{
+				Phase:     session.PhaseNeedsKernel,
+				NeedsPick: true,
+			}))
 			return
 		}
 		writeJSON(w, nb)
