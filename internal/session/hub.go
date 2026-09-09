@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,16 @@ var (
 	ErrKernelNotStarted      = errors.New("kernel not started")
 	ErrClientNotSessionReady = errors.New("client not session-ready")
 	ErrSessionNotFound       = errors.New("session not found")
+	ErrEmptyChat             = errors.New("empty chat text")
+	ErrChatTooLong           = errors.New("chat text too long")
+)
+
+// ChatFromAgent is the author label for HTTP agent posts (shown in the UI).
+const ChatFromAgent = "agent"
+
+const (
+	chatTail    = 100
+	chatMaxText = 8 << 10
 )
 
 // Client is a connected browser peer.
@@ -74,9 +85,16 @@ type Hub struct {
 	boundName string // empty = NeedsKernel
 	phase     KernelPhase
 	clients   map[string]*Client
+	chat      []ChatMessage
 	saveTimer *time.Timer
 	unsub     func()
 	spawning  bool
+}
+
+// ChatMessage is one RAM-only session chat line (not stored in the ipynb).
+type ChatMessage struct {
+	From string `json:"from"`
+	Text string `json:"text"`
 }
 
 // Open loads a notebook from store into a new Hub.
@@ -382,6 +400,42 @@ func (h *Hub) broadcastStructure() {
 		"cells": cells,
 	}), "")
 	h.scheduleSave()
+}
+
+// PostChat appends a line to the RAM tail and fans it out to connected clients.
+func (h *Hub) PostChat(from, text string) (ChatMessage, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ChatMessage{}, ErrEmptyChat
+	}
+	if len(text) > chatMaxText {
+		return ChatMessage{}, ErrChatTooLong
+	}
+	if from == "" {
+		from = ChatFromAgent
+	}
+	msg := ChatMessage{From: from, Text: text}
+	h.mu.Lock()
+	h.chat = append(h.chat, msg)
+	if len(h.chat) > chatTail {
+		h.chat = append([]ChatMessage(nil), h.chat[len(h.chat)-chatTail:]...)
+	}
+	h.mu.Unlock()
+	h.BroadcastJSON(jsonutil.Bytes(map[string]string{
+		"type": "chat.message",
+		"text": msg.Text,
+		"from": msg.From,
+	}), "")
+	return msg, nil
+}
+
+// ChatTail returns a copy of the RAM chat buffer.
+func (h *Hub) ChatTail() []ChatMessage {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]ChatMessage, len(h.chat))
+	copy(out, h.chat)
+	return out
 }
 
 // SetCellSource updates cell source in the CRDT and notifies other clients.

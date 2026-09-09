@@ -221,6 +221,34 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry) {
 		writeJSON(w, hub.Status())
 	})
 
+	mux.HandleFunc("GET /api/sessions/{id}/chat", func(w http.ResponseWriter, r *http.Request) {
+		hub, ok := openSession(w, r, reg)
+		if !ok {
+			return
+		}
+		writeJSON(w, map[string]any{"messages": hub.ChatTail()})
+	})
+
+	mux.HandleFunc("POST /api/sessions/{id}/chat", func(w http.ResponseWriter, r *http.Request) {
+		hub, ok := openSession(w, r, reg)
+		if !ok {
+			return
+		}
+		var body struct {
+			Text string `json:"text"`
+		}
+		if err := decodeJSONBody(r, &body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		msg, err := hub.PostChat(session.ChatFromAgent, body.Text)
+		if err != nil {
+			writeHubError(w, err)
+			return
+		}
+		writeJSON(w, msg)
+	})
+
 	mux.HandleFunc("POST /api/sessions/{id}/save", func(w http.ResponseWriter, r *http.Request) {
 		hub, ok := openSession(w, r, reg)
 		if !ok {
@@ -305,7 +333,9 @@ func writeHubError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case errors.Is(err, session.ErrInvalidCellType),
 		errors.Is(err, session.ErrKernelNameRequired),
-		errors.Is(err, session.ErrNoKernelSelected):
+		errors.Is(err, session.ErrNoKernelSelected),
+		errors.Is(err, session.ErrEmptyChat),
+		errors.Is(err, session.ErrChatTooLong):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, session.ErrKernelNotStarted),
 		errors.Is(err, session.ErrKernelspecUnavailable):

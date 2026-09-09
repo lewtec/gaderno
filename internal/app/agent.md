@@ -166,6 +166,24 @@ curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/interrupt"
 
 No live kernel process → 409.
 
+## Chat
+
+Session chat is RAM-only (same panel as the UI). It is not saved in the ipynb.
+
+Post as `agent`. Open browser tabs see `chat.message` immediately.
+
+```bash
+curl -fsS -X POST "$GADERNO_URL/api/sessions/$SID/chat" \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"ran the plot cell; see the figure in the UI"}'
+# {"from":"agent","text":"ran the plot cell; see the figure in the UI"}
+
+curl -fsS "$GADERNO_URL/api/sessions/$SID/chat"
+# {"messages":[{"from":"a1b2c3d4","text":"try seaborn"},{"from":"agent","text":"…"}]}
+```
+
+Empty text → 400. Cap is 8KiB. Use this so the person watching the notebook sees you. Do not impersonate other `from` values.
+
 ## Save
 
 Disk flush is debounced after mutations. Force a write:

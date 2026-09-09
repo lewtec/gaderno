@@ -169,11 +169,14 @@ func handleControl(ctx context.Context, hub *session.Hub, client *session.Client
 		default:
 		}
 	case "chat.send":
-		hub.BroadcastJSON(jsonutil.Bytes(map[string]string{
-			"type": "chat.message",
-			"text": ctrl.Text,
-			"from": client.ID[:8],
-		}), "")
+		from := client.ID
+		if len(from) > 8 {
+			from = from[:8]
+		}
+		if _, err := hub.PostChat(from, ctrl.Text); err != nil {
+			sendErr(client, err.Error())
+			return
+		}
 	case "cell.set_source":
 		// Legacy full-cell replace (still used as Run flush safety).
 		if ctrl.CellID == "" {

@@ -675,6 +675,8 @@ Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
 | DELETE | `/api/sessions/{id}/cells/{cell}` | delete cell |
 | POST | `/api/sessions/{id}/cells/{cell}/execute` | run cell; optional `source` written first; uses the bound kernel only |
 | POST | `/api/sessions/{id}/interrupt` | interrupt running kernel |
+| GET | `/api/sessions/{id}/chat` | RAM chat tail |
+| POST | `/api/sessions/{id}/chat` | post as `agent`; fan-out to WS clients |
 | POST | `/api/sessions/{id}/save` | force ipynb flush |
 | GET | `/api/kernels` | catalog |
 | POST | `/api/kernel/bind` | bind kernelspec (UI; path in body) |

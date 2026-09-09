@@ -431,6 +431,43 @@ func TestCompactViewDefaultIsFullNotebook(t *testing.T) {
 	}
 }
 
+func TestSessionChatHTTP(t *testing.T) {
+	mux, _, st := newAgentMux(t)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	sid := openSessionByPath(t, mux, "n.ipynb").SessionID
+	base := "/api/sessions/" + sid + "/chat"
+
+	rec := doJSON(t, mux, http.MethodPost, base, map[string]any{"text": "  hi there  "})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("post status %d body %s", rec.Code, rec.Body.String())
+	}
+	msg := decodeBody[session.ChatMessage](t, rec)
+	if msg.From != session.ChatFromAgent || msg.Text != "hi there" {
+		t.Fatalf("%+v", msg)
+	}
+
+	rec = doJSON(t, mux, http.MethodPost, base, map[string]any{"text": "   "})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty status %d", rec.Code)
+	}
+
+	rec = doJSON(t, mux, http.MethodGet, base, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get status %d", rec.Code)
+	}
+	var got struct {
+		Messages []session.ChatMessage `json:"messages"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Messages) != 1 || got.Messages[0].Text != "hi there" {
+		t.Fatalf("%+v", got.Messages)
+	}
+}
+
 func TestGetByIDAfterCloseAll(t *testing.T) {
 	_, reg, st := newAgentMux(t)
 	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {

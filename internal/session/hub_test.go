@@ -271,3 +271,34 @@ func TestClientNotReadyBlocksSync(t *testing.T) {
 		t.Fatal("expected ready")
 	}
 }
+
+func TestPostChatTail(t *testing.T) {
+	dir := t.TempDir()
+	st := store.New(dir)
+	if err := st.Save(t.Context(), "n.ipynb", document.NewEmpty()); err != nil {
+		t.Fatal(err)
+	}
+	h, err := Open(t.Context(), st, dir, "n.ipynb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close(t.Context())
+
+	if _, err := h.PostChat(ChatFromAgent, "  "); !errors.Is(err, ErrEmptyChat) {
+		t.Fatalf("empty: %v", err)
+	}
+	if _, err := h.PostChat(ChatFromAgent, string(make([]byte, chatMaxText+1))); !errors.Is(err, ErrChatTooLong) {
+		t.Fatalf("long: %v", err)
+	}
+	got, err := h.PostChat("", " hello ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.From != ChatFromAgent || got.Text != "hello" {
+		t.Fatalf("%+v", got)
+	}
+	tail := h.ChatTail()
+	if len(tail) != 1 || tail[0].Text != "hello" {
+		t.Fatalf("%+v", tail)
+	}
+}
