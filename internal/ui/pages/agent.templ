@@ -70,7 +70,6 @@ templ Agent(d AgentData) {
 							lines.push("Notebook: " + path);
 						}
 						lines.push("Session: " + sid);
-						lines.push("Use GET /api/sessions/" + sid + " and mutate that session. If it 404s, POST /api/sessions with the notebook path and use the new session_id.");
 					} else if (path) {
 						lines.push("");
 						lines.push("Notebook: " + path);
