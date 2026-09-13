@@ -26,7 +26,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/lucasew/gaderno/internal/cli.version={{ .Version }}
+      - -s -w -X github.com/lewtec/lewkit/x/release.version={{ .Version }}
 
 archives:
   - formats: [tar.gz]

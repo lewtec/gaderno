@@ -12,7 +12,6 @@ import (
 
 	"github.com/lucasew/gaderno/internal/auth"
 	"github.com/lucasew/gaderno/internal/config"
-	"github.com/lucasew/gaderno/internal/log"
 	"github.com/lucasew/gaderno/internal/session"
 	"github.com/lucasew/gaderno/internal/store"
 	"github.com/lucasew/gaderno/internal/web"
@@ -21,7 +20,7 @@ import (
 
 // Run starts the HTTP server until ctx is cancelled.
 func Run(ctx context.Context, cfg config.Config, version string) error {
-	logger := log.New()
+	logger := slog.Default()
 
 	root, err := cfg.AbsRoot()
 	if err != nil {

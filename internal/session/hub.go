@@ -296,7 +296,7 @@ func (h *Hub) EnsureKernel(ctx context.Context, name string) error {
 	h.spawning = true
 	h.phase = PhaseStarting
 	bound := h.boundName
-	// Serve directory (positional or --root), not the notebook folder.
+	// Serve directory (--root), not the notebook folder.
 	cwd := h.Root
 	st := h.statusLocked()
 	h.mu.Unlock()

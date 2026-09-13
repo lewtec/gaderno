@@ -5,7 +5,7 @@
 | **Title** | gaderno Product & Architecture Spec |
 | **Status** | Draft (post grill) |
 | **Date** | 2026-07-16 |
-| **Repo** | `/home/lucasew/WORKSPACE/OPENSOURCE-own/gaderno` (greenfield; Go 1.26.4 via `mise.toml`) |
+| **Repo** | `/home/lucasew/WORKSPACE/OPENSOURCE-own/gaderno` (greenfield; Go 1.27.0 via `mise.toml`) |
 | **Audience** | Engineers implementing gaderno |
 
 This document is the **product and architecture specification**. It is not a style guide.
@@ -110,7 +110,7 @@ Prior art: Jupyter messaging protocol, Colab (server kernels + collab), Yjs/y-we
 | 20 | **Large outputs (v1):** cap + truncate only; no blob store. Big/binary plumbing later. |
 | 21 | **Structure/authority:** anyone may propose any doc change; **server may reject** (drop/not relay, error to originator). |
 | 22 | **Keyboard UX:** explicit controls stay first-class (play, `+` gaps, cell menu). Jupyter command/edit keys are second-class accelerators (table in **Keyboard UX**). No palette, vim, or user-customizable maps. `I I` interrupt needs a WS hook over existing `Manager.Interrupt`. |
-| 23 | **CLI:** Cobra + Viper; room to grow (`serve`, `version` now). **No config file.** Flags override env. Env prefix `GADERNO_`. |
+| 23 | **CLI:** lewkit `x/cmd` (`cmd.App`); room to grow (`serve`, `version` now). **No config file.** Flags override env. Env prefix `GADERNO_`. |
 | 24 | **uv synthetic kernels (MVP):** optional; if `uv` missing or `uv python list` fails, omit the **uv** picker group. Never hard-require `uv` to serve. |
 | 25 | **uv catalog:** on first need, `sync.Once` runs `uv python list`; **dedupe first-column keys**; **no kind filter** (CPython/PyPy/Graal/freethreaded/…). Process-lifetime cache (no mid-run refresh in v1). |
 | 26 | **Synthetic kernelspecs are in-memory only** — do not write `kernel.json` under Jupyter data dirs. Real on-disk kernelspecs never overridden by synthetics (same name → real wins). |
@@ -263,7 +263,7 @@ Spawn is **lazy and idempotent**: only the first execute (Run) after a successfu
 1. Require a **bound** kernelspec name; if none → reject exec (`NeedsKernel` / chooser).
 2. Resolve name via **unified discovery** (Jupyter paths + optional uv synthetics below).
 3. Allocate five free TCP ports; write connection file (mode 0600).
-4. Expand kernelspec `argv`; `exec.Command` with cwd = the serve directory (`gaderno serve DIR`, else `--root` / `GADERNO_ROOT`). Never inherit the gaderno process cwd; reject an empty work dir.
+4. Expand kernelspec `argv`; `exec.Command` with cwd = the serve directory (`--root` / `GADERNO_ROOT`). Never inherit the gaderno process cwd; reject an empty work dir.
 5. Connect as ZMQ client with pure-Go `github.com/go-zeromq/zmq4` — **IOPub SUB first** (see wire section).
 6. Heartbeat + IOPub loops owned by kernel adapter.
 7. `kernel_info_request`; Ready only after reply.
@@ -692,14 +692,14 @@ Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
 
 ### CLI
 
-Cobra commands (room to grow; no stub subcommands that do nothing useful):
+lewkit `x/cmd` commands (room to grow; no stub subcommands that do nothing useful):
 
 ```text
-gaderno serve [DIR] [--root DIR] [--listen ADDR] [--token SECRET]
+gaderno serve [--root DIR] [--listen ADDR] [--token SECRET]
 gaderno version
 ```
 
-**Config (Viper):** no config file. Bind flags + automatic env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). **Precedence: positional DIR > flags > env > defaults.** The serve directory is both the notebook jail and the kernel process cwd.
+**Config:** no config file. Flag tags bind env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). `--listen` also accepts `PORT`. **Precedence: flags > env > defaults.** `--listen` is `cmd.AddrArg`. `--root` is `cmd.WorkDirArg` (must exist; default `.`). The serve directory is both the notebook jail and the kernel process cwd. Version is `cmd.VersionCmd` / `--version` via `x/release`.
 
 ---
 
@@ -841,7 +841,7 @@ Large outputs: cap+truncate. Structure: anyone proposes; server may reject.
 19. **Large outputs:** v1 = cap and truncate only; blob system later.
 20. **Doc mutations:** everyone may propose any change; **server may reject** (outputs/exec fields always rejected from clients).
 21. **Keyboard:** explicit controls first-class; Jupyter command/edit keys as accelerators (**Keyboard UX**). No palette / vim / custom maps.
-22. **CLI: Cobra + Viper** — flags override env; no config file; `GADERNO_` env prefix.
+22. **CLI: lewkit `x/cmd`** — flags override env; no config file; `GADERNO_` env prefix.
 
 ---
 
@@ -858,10 +858,10 @@ Large outputs: cap+truncate. Structure: anyone proposes; server may reject.
 
 ## PR Plan
 
-Ordered increments from empty repo. Toolchain: Go **1.26.4** (mise).
+Ordered increments from empty repo. Toolchain: Go **1.27.0** (mise).
 
 ### PR 01 — Scaffold
-- `go.mod`, `cmd/gaderno`, `internal/app|config|log`, `/healthz`, `gaderno version|serve`
+- `go.mod`, `cmd/gaderno`, `internal/app|config`, `/healthz`, `gaderno version|serve`
 - GoReleaser config when ready: copy/adapt from known examples (not a placeholder stub). Can land with first tag-ready PR, not blocking scaffold.
 
 ### PR 02 — Workspace shell

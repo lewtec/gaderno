@@ -24,7 +24,7 @@ Architecture and product contract: [`SPEC.md`](SPEC.md). UI brief: [`PRODUCT.md`
 
 | Need | Notes |
 |------|--------|
-| **Go 1.26+** | via [mise](https://mise.jdx.dev/) (`mise.toml`) or your own toolchain |
+| **Go 1.27+** | via [mise](https://mise.jdx.dev/) (`mise.toml`) or your own toolchain |
 | **Bun** | vendoring daisyUI/Tailwind browser + CodeMirror bundle (`mise run codegen`) |
 | **A kernel** | classic Jupyter kernelspec **and/or** [`uv`](https://github.com/astral-sh/uv) on `PATH` for synthetic Pythons |
 
@@ -52,7 +52,7 @@ go build -o gaderno ./cmd/gaderno/
 
 ```bash
 mkdir -p notebooks
-gaderno serve ./notebooks --listen 127.0.0.1:8765
+gaderno serve --root ./notebooks --listen 127.0.0.1:8765
 ```
 
 Open **http://127.0.0.1:8765/** → create or open a notebook → pick a kernel (session status control) → **play** a cell.
@@ -62,7 +62,7 @@ When set, HTTP and WebSocket require the token (`Authorization: Bearer`, cookie 
 
 ```bash
 export GADERNO_TOKEN=secret
-gaderno serve ./notebooks --listen 127.0.0.1:8765 --token "$GADERNO_TOKEN"
+gaderno serve --root ./notebooks --listen 127.0.0.1:8765 --token "$GADERNO_TOKEN"
 # open http://127.0.0.1:8765/?token=secret  (cookie set; token stripped from URL)
 ```
 
@@ -83,20 +83,22 @@ The **Agent** control is in the topbar. From a notebook it copies an invite pinn
 
 | Command | Purpose |
 |---------|---------|
-| `gaderno serve [dir]` | HTTP + WebSocket UI over a workspace root (kernel cwd is that dir) |
-| `gaderno version` | Print version (release builds set via GoReleaser ldflags) |
+| `gaderno serve` | HTTP + WebSocket UI over a workspace root (kernel cwd is `--root`) |
+| `gaderno version` | Print version (also `--version`; release builds set `lewkit/x/release.version`) |
 
 ### Flags / env (`serve`)
 
-Flags override env. Prefix `GADERNO_`.
+Flags override env. Prefix `GADERNO_`. `--root` must already exist.
 
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
-| `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd (positional `serve DIR` wins) |
-| `--listen` | `GADERNO_LISTEN` | `127.0.0.1:8080` | Listen address |
+| `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd |
+| `--listen` | `GADERNO_LISTEN`, `PORT` | `127.0.0.1:8080` | Listen address (`host:port`; a bare port is `:port`) |
 | `--token` | `GADERNO_TOKEN` | _(empty)_ | Optional shared access token (enforced when set) |
 | `--i-understand` | `GADERNO_I_UNDERSTAND` | `false` | Allow non-loopback listen without a token |
 | `--kernel` | `GADERNO_KERNEL` | `python3` | Default kernelspec name hint (no auto-start) |
+
+Process flags (any command): `-v` / `--verbose`, `--profile-dir`, `-h` / `--help`, `--version`.
 
 ## Using the UI
 
