@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 
@@ -13,31 +12,20 @@ import (
 )
 
 type serveCmd struct {
-	Root        cmd.WorkDirArg  `long:"root" env:"GADERNO_ROOT" help:"workspace root directory"`
-	Listen      cmd.AddrArg     `long:"listen" env:"GADERNO_LISTEN,PORT" default:"127.0.0.1:8080" help:"listen address"`
-	Token       cmd.StringArg   `long:"token" env:"GADERNO_TOKEN" default:"" help:"shared access token"`
-	Kernel      cmd.StringArg   `long:"kernel" env:"GADERNO_KERNEL" default:"python3" help:"default kernelspec name"`
-	IUnderstand cmd.Flag        `long:"i-understand" env:"GADERNO_I_UNDERSTAND" help:"allow non-loopback listen without a shared token (dangerous)"`
-	Dir         *cmd.DataDirArg `help:"workspace root (wins over --root)"`
+	Root        cmd.WorkDirArg `long:"root" env:"GADERNO_ROOT" help:"workspace root directory"`
+	Listen      cmd.AddrArg    `long:"listen" env:"GADERNO_LISTEN,PORT" default:"127.0.0.1:8080" help:"listen address"`
+	Token       cmd.StringArg  `long:"token" env:"GADERNO_TOKEN" default:"" help:"shared access token"`
+	Kernel      cmd.StringArg  `long:"kernel" env:"GADERNO_KERNEL" default:"python3" help:"default kernelspec name"`
+	IUnderstand cmd.Flag       `long:"i-understand" env:"GADERNO_I_UNDERSTAND" help:"allow non-loopback listen without a shared token (dangerous)"`
 }
 
 func (serveCmd) Description() string {
 	return "start the gaderno HTTP server"
 }
 
-// resolveServeRoot is the workspace root and kernel cwd.
-// Positional `gaderno serve DIR` wins over --root / GADERNO_ROOT.
-func resolveServeRoot(positional, flagOrEnv string) string {
-	return cmp.Or(positional, flagOrEnv, ".")
-}
-
 func (c *serveCmd) Run(ctx context.Context) error {
-	positional := ""
-	if c.Dir != nil {
-		positional = c.Dir.Value()
-	}
 	cfg := config.Config{
-		Root:        resolveServeRoot(positional, c.Root.Value()),
+		Root:        c.Root.Value(),
 		Listen:      c.Listen.Value(),
 		Token:       c.Token.Value(),
 		Kernel:      c.Kernel.Value(),

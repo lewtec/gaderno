@@ -12,26 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolveServeRoot(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name       string
-		positional string
-		flagOrEnv  string
-		want       string
-	}{
-		{name: "positional wins", positional: "/proj", flagOrEnv: "/other", want: "/proj"},
-		{name: "flag when no positional", positional: "", flagOrEnv: "/from-flag", want: "/from-flag"},
-		{name: "default dot", positional: "", flagOrEnv: "", want: "."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tt.want, resolveServeRoot(tt.positional, tt.flagOrEnv))
-		})
-	}
-}
-
 func parseServe(t *testing.T, args ...string) serveCmd {
 	t.Helper()
 	app, err := cmd.Parse[cmd.App[root]](append([]string{"serve"}, args...)...)
@@ -47,7 +27,6 @@ func TestServeParseDefaults(t *testing.T) {
 	assert.Empty(t, got.Token.Value())
 	assert.Equal(t, "python3", got.Kernel.Value())
 	assert.False(t, got.IUnderstand.Value())
-	assert.Nil(t, got.Dir)
 }
 
 func TestServeParseFlags(t *testing.T) {
@@ -101,16 +80,6 @@ func TestServeFlagOverridesEnv(t *testing.T) {
 	assert.Equal(t, "flag-token", got.Token.Value())
 }
 
-func TestServePositionalWinsOverRoot(t *testing.T) {
-	pos := t.TempDir()
-	flagDir := t.TempDir()
-	got := parseServe(t, pos, "--root", flagDir)
-	require.NotNil(t, got.Dir)
-	assert.Equal(t, pos, got.Dir.Value())
-	assert.Equal(t, flagDir, got.Root.Value())
-	assert.Equal(t, pos, resolveServeRoot(got.Dir.Value(), got.Root.Value()))
-}
-
 func TestServeBarePortListen(t *testing.T) {
 	got := parseServe(t, "--listen", "8080")
 	assert.Equal(t, ":8080", got.Listen.Value())
@@ -122,9 +91,9 @@ func TestServeRejectsMissingRoot(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func TestServeRejectsExtraArgs(t *testing.T) {
+func TestServeRejectsPositional(t *testing.T) {
 	dir := t.TempDir()
-	_, err := cmd.Parse[cmd.App[root]]("serve", dir, dir)
+	_, err := cmd.Parse[cmd.App[root]]("serve", dir)
 	assert.ErrorIs(t, err, cmd.ErrInvalidArgument)
 }
 
