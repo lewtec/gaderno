@@ -93,7 +93,7 @@ Flags override env. Prefix `GADERNO_`. `--root` and the positional dir must alre
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
 | `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd (positional `serve DIR` wins) |
-| `--listen` | `GADERNO_LISTEN` | `127.0.0.1:8080` | Listen address (`host:port`; a bare port is `:port`) |
+| `--listen` | `GADERNO_LISTEN`, `PORT` | `127.0.0.1:8080` | Listen address (`host:port`; a bare port is `:port`) |
 | `--token` | `GADERNO_TOKEN` | _(empty)_ | Optional shared access token (enforced when set) |
 | `--i-understand` | `GADERNO_I_UNDERSTAND` | `false` | Allow non-loopback listen without a token |
 | `--kernel` | `GADERNO_KERNEL` | `python3` | Default kernelspec name hint (no auto-start) |

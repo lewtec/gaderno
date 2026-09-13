@@ -699,7 +699,7 @@ gaderno serve [DIR] [--root DIR] [--listen ADDR] [--token SECRET]
 gaderno version
 ```
 
-**Config:** no config file. Flag tags bind env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). **Precedence: positional DIR > flags > env > defaults.** `--listen` is `cmd.AddrArg`. `--root` / DIR is `cmd.WorkDirArg` (must exist). The serve directory is both the notebook jail and the kernel process cwd. Version is `cmd.VersionCmd` / `--version` via `x/release`.
+**Config:** no config file. Flag tags bind env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). `--listen` also accepts `PORT`. **Precedence: positional DIR > flags > env > defaults.** `--listen` is `cmd.AddrArg`. `--root` / DIR is `cmd.WorkDirArg` (must exist). The serve directory is both the notebook jail and the kernel process cwd. Version is `cmd.VersionCmd` / `--version` via `x/release`.
 
 ---
 
