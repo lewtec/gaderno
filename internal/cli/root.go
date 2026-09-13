@@ -1,44 +1,36 @@
 package cli
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-// version is set by -ldflags at release time.
-var version = "dev"
-
-// rootCmd is the base command.
-var rootCmd = &cobra.Command{
-	Use:   "gaderno",
-	Short: "Server-authoritative collaborative notebooks",
-	Long:  "gaderno runs Jupyter kernels with a server-owned CRDT notebook and thin browser clients.",
+type root struct {
+	Serve   *serveCmd
+	Version *cmd.VersionCmd
 }
 
-// Execute runs the CLI.
-func Execute() error {
-	return rootCmd.Execute()
+func (root) Description() string {
+	return "gaderno runs Jupyter kernels with a server-owned CRDT notebook and thin browser clients."
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
-	rootCmd.AddCommand(serveCmd)
-	rootCmd.AddCommand(versionCmd)
+func (root) Run(context.Context) error {
+	text, err := cmd.Usage[cmd.App[root]]("gaderno")
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.WriteString(text)
+	return err
 }
 
-func initConfig() {
-	viper.SetEnvPrefix("GADERNO")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-	viper.AutomaticEnv()
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print gaderno version",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version)
-	},
+// Execute parses os.Args and runs the selected command.
+func Execute(ctx context.Context) error {
+	app, err := cmd.Parse[cmd.App[root]](os.Args[1:]...)
+	if err != nil {
+		return fmt.Errorf("parse: %w", err)
+	}
+	return app.Run(ctx)
 }
