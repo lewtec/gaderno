@@ -1,0 +1,36 @@
+[tools]
+go = "1.26.5"
+uv = "0.11.26"
+bun = "1.3.14"
+goreleaser = "2.17.0"
+svu = "3.3.0"
+
+[tasks.install]
+run = "go mod tidy && bun install"
+
+[tasks.codegen]
+description = "go generate: vendor web assets, editor bundle, templ"
+run = "go generate ./..."
+
+[tasks.format]
+description = "Format Go packages"
+run = "go fmt ./..."
+
+[tasks.ci]
+description = "CI checks and tests"
+depends = ["codegen"]
+run = "go test ./... && go build -o /dev/null ./cmd/gaderno/"
+
+[tasks.release]
+description = "Run a release"
+depends = ["ci"]
+usage = '''
+arg "<version>" help="New version" {
+  choices "next" "major" "minor" "patch"
+  default "next"
+}
+'''
+run = '''
+git tag $(svu ${usage_version})
+goreleaser release --clean
+'''

@@ -1,0 +1,56 @@
+package pages
+
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+)
+
+func TestWorkspaceRender(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Workspace(WorkspaceData{Notebooks: []string{"a.ipynb"}}).Render(context.Background(), &buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, s := range []string{"/static/vendor/daisyui.css", "/static/vendor/tailwind-browser.js", "gaderno-light", "a.ipynb", "g-nb-row"} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %q", s)
+		}
+	}
+}
+
+func TestNotebookRenderJSON(t *testing.T) {
+	var buf bytes.Buffer
+	err := Notebook(NotebookData{
+		Path:       "demo.ipynb",
+		PathJSON:   `"demo.ipynb"`,
+		KernelJSON: `"python3"`,
+		Cells:      []CellView{{Type: "code", ID: "c1", SourceJSON: `"print(1)"`}},
+	}).Render(context.Background(), &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, s := range []string{`window.__GADERNO__`, `"demo.ipynb"`, `data-cell-id="c1"`, `cell-source-json`, `/static/app.js`, `"python3"`, `print(1)`} {
+		if !strings.Contains(out, s) {
+			t.Errorf("missing %q", s)
+		}
+	}
+	idx := strings.Index(out, "window.__GADERNO__")
+	if idx >= 0 {
+		end := idx + 180
+		if end > len(out) {
+			end = len(out)
+		}
+		t.Logf("boot: %s", out[idx:end])
+	}
+	idx = strings.Index(out, "cell-source-json")
+	if idx >= 0 {
+		end := idx + 120
+		if end > len(out) {
+			end = len(out)
+		}
+		t.Logf("cell: %s", out[idx:end])
+	}
+}
