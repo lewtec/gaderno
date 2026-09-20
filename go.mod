@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lewtec/lewkit v0.0.0-20260913142926-fbe1eee8fa14
-	github.com/reearth/ygo v1.31.6
+	github.com/reearth/ygo v1.50.0
 	github.com/stretchr/testify v1.12.1
 )
 
