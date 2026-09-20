@@ -22,6 +22,8 @@ github.com/charmbracelet/x/termios v0.1.1 h1:o3Q2bT8eqzGnGPOYheoYS8eEleT5ZVNYNy8
 github.com/charmbracelet/x/termios v0.1.1/go.mod h1:rB7fnv1TgOPOyyKRJ9o+AsTU/vK5WHJ2ivHeut/Pcwo=
 github.com/charmbracelet/x/vt v0.0.0-20260816001655-68d539dca504 h1:6IimldGknk2hgS1DwDm5qzCJM0QPb6nK4Seyk5XOsp4=
 github.com/charmbracelet/x/vt v0.0.0-20260816001655-68d539dca504/go.mod h1:u1LOIABor9JqY54oZdktK3TCRrgzP6tzHrDYx1nd3wY=
+github.com/charmbracelet/x/vt v0.0.0-20260920004010-53e2afe73ae5 h1:Zsy7QX/GcTt7RJw8Hy9SiemYvheLimtK8dF+yx4MbVU=
+github.com/charmbracelet/x/vt v0.0.0-20260920004010-53e2afe73ae5/go.mod h1:u1LOIABor9JqY54oZdktK3TCRrgzP6tzHrDYx1nd3wY=
 github.com/charmbracelet/x/windows v0.2.2 h1:IofanmuvaxnKHuV04sC0eBy/smG6kIKrWG2/jYn2GuM=
 github.com/charmbracelet/x/windows v0.2.2/go.mod h1:/8XtdKZzedat74NQFn0NGlGL4soHB0YQZrETF96h75k=
 github.com/cli/browser v1.3.0 h1:LejqCrpWr+1pRqmEPDGnTZOjsMe7sehifLynZJuqJpo=
