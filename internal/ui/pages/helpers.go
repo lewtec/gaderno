@@ -29,15 +29,19 @@ func writeComponent(fn func(w io.Writer) error) templ.Component {
 	})
 }
 
-// cellJSONScript emits a JSON script tag. json must be encoding/json output.
-func cellJSONScript(class, cellID, json string) templ.Component {
+func fprintfComponent(format string, args ...any) templ.Component {
 	return writeComponent(func(w io.Writer) error {
-		// cell IDs are generated UUIDs / internal ids — still attribute-escape.
-		_, err := fmt.Fprintf(w,
-			`<script type="application/json" class="%s" data-cell-id="%s">%s</script>`,
-			class, templ.EscapeString(cellID), json)
+		_, err := fmt.Fprintf(w, format, args...)
 		return err
 	})
+}
+
+// cellJSONScript emits a JSON script tag. json must be encoding/json output.
+func cellJSONScript(class, cellID, json string) templ.Component {
+	// cell IDs are generated UUIDs / internal ids — still attribute-escape.
+	return fprintfComponent(
+		`<script type="application/json" class="%s" data-cell-id="%s">%s</script>`,
+		class, templ.EscapeString(cellID), json)
 }
 
 // cellSourceJSON emits a JSON script tag. json must be encoding/json output.
@@ -53,19 +57,13 @@ func cellResultJSON(cellID, json string) templ.Component {
 // gadernoBoot emits window.__GADERNO__ from json.Marshal'd path and kernel.
 // agentBoot emits window.__GADERNO_AGENT__ from json.Marshal'd fields.
 func agentBoot(tokenJSON, pathJSON, sessionJSON string) templ.Component {
-	return writeComponent(func(w io.Writer) error {
-		_, err := fmt.Fprintf(w,
-			"<script>\nwindow.__GADERNO_AGENT__ = { token: %s, path: %s, session_id: %s };\n</script>\n",
-			tokenJSON, pathJSON, sessionJSON)
-		return err
-	})
+	return fprintfComponent(
+		"<script>\nwindow.__GADERNO_AGENT__ = { token: %s, path: %s, session_id: %s };\n</script>\n",
+		tokenJSON, pathJSON, sessionJSON)
 }
 
 func gadernoBoot(pathJSON, kernelJSON string) templ.Component {
-	return writeComponent(func(w io.Writer) error {
-		_, err := fmt.Fprintf(w,
-			"<script>\n\twindow.__GADERNO__ = {\n\t\tpath: %s,\n\t\tkernel: %s\n\t};\n</script>\n",
-			pathJSON, kernelJSON)
-		return err
-	})
+	return fprintfComponent(
+		"<script>\n\twindow.__GADERNO__ = {\n\t\tpath: %s,\n\t\tkernel: %s\n\t};\n</script>\n",
+		pathJSON, kernelJSON)
 }
