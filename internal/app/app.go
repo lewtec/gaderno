@@ -20,6 +20,15 @@ import (
 
 // Run starts the HTTP server until ctx is cancelled.
 func Run(ctx context.Context, cfg config.Config, version string) error {
+	return run(ctx, cfg, version, nil)
+}
+
+// RunReady is [Run]. ready is called with the bound address once listening.
+func RunReady(ctx context.Context, cfg config.Config, version string, ready func(addr string)) error {
+	return run(ctx, cfg, version, ready)
+}
+
+func run(ctx context.Context, cfg config.Config, version string, ready func(addr string)) error {
 	logger := slog.Default()
 
 	root, err := cfg.AbsRoot()
@@ -81,6 +90,9 @@ func Run(ctx context.Context, cfg config.Config, version string) error {
 	ln, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
+	}
+	if ready != nil {
+		ready(ln.Addr().String())
 	}
 	authMode := "none"
 	if gate.Enabled() {

@@ -695,11 +695,12 @@ Tab completion and hover inspect stay as they are (CodeMirror / kernel RPC).
 lewkit `x/cmd` commands (room to grow; no stub subcommands that do nothing useful):
 
 ```text
-gaderno serve [--root DIR] [--listen ADDR] [--token SECRET]
+gaderno serve [-C DIR] [--root DIR] [--listen ADDR] [--token SECRET]
+gaderno desktop [-C DIR] [--root DIR] [--listen ADDR] [--token SECRET]
 gaderno version
 ```
 
-**Config:** no config file. Flag tags bind env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). `--listen` also accepts `PORT`. **Precedence: flags > env > defaults.** `--listen` is `cmd.AddrArg`. `--root` is `cmd.WorkDirArg` (must exist; default `.`). The serve directory is both the notebook jail and the kernel process cwd. Version is `cmd.VersionCmd` / `--version` via `x/release`.
+**Config:** no config file. Flag tags bind env with prefix `GADERNO_` (e.g. `GADERNO_ROOT`, `GADERNO_LISTEN`, `GADERNO_TOKEN`). `--listen` also accepts `PORT`. **Precedence: flags > env > defaults.** `--listen` is `cmd.AddrArg`. `--root` / `-C` is `cmd.WorkDirArg` (must exist; default `.`). The serve directory is both the notebook jail and the kernel process cwd. `desktop` is the same server inside the lewkit webview driver (WebKitGTK / WKWebView / WebView2). It listens on loopback (`127.0.0.1:0` by default) and the window navigates to that HTTP origin so the notebook WebSocket works. Version is `cmd.VersionCmd` / `--version` via `x/release`.
 
 ---
 

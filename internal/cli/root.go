@@ -10,6 +10,7 @@ import (
 
 type root struct {
 	Serve   *serveCmd
+	Desktop *desktopCmd
 	Version *cmd.VersionCmd
 }
 
