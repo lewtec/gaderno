@@ -1,0 +1,21 @@
+package layout
+
+// Document is the HTML shell: vendored daisyUI + Tailwind browser + inlined theme/product assets.
+templ Document(title string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="gaderno-light" class="h-full">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			if title != "" {
+				<title>{ title }</title>
+			} else {
+				<title>gaderno</title>
+			}
+			<link rel="stylesheet" href="/static/vendor/daisyui.css"/>
+			<script src="/static/vendor/tailwind-browser.js"></script>
+			@HeadAssets()
+		</head>
+		{ children... }
+	</html>
+}
