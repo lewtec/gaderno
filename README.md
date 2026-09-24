@@ -83,7 +83,8 @@ The **Agent** control is in the topbar. From a notebook it copies an invite pinn
 
 | Command | Purpose |
 |---------|---------|
-| `gaderno serve` | HTTP + WebSocket UI over a workspace root (kernel cwd is `--root`) |
+| `gaderno serve` | HTTP + WebSocket UI over a workspace root (kernel cwd is `--root` / `-C`) |
+| `gaderno desktop` | Same server in a native window (WebKitGTK, WKWebView, or WebView2). Listens on `127.0.0.1:0` unless `--listen` is set |
 | `gaderno version` | Print version (also `--version`; release builds set `lewkit/x/release.version`) |
 
 ### Flags / env (`serve`)
@@ -92,7 +93,7 @@ Flags override env. Prefix `GADERNO_`. `--root` must already exist.
 
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
-| `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd |
+| `-C`, `--root` | `GADERNO_ROOT` | `.` | Workspace + kernel cwd |
 | `--listen` | `GADERNO_LISTEN`, `PORT` | `127.0.0.1:8080` | Listen address (`host:port`; a bare port is `:port`) |
 | `--token` | `GADERNO_TOKEN` | _(empty)_ | Optional shared access token (enforced when set) |
 | `--i-understand` | `GADERNO_I_UNDERSTAND` | `false` | Allow non-loopback listen without a token |

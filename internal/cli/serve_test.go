@@ -29,6 +29,12 @@ func TestServeParseDefaults(t *testing.T) {
 	assert.False(t, got.IUnderstand.Value())
 }
 
+func TestServeParseShortRoot(t *testing.T) {
+	dir := t.TempDir()
+	got := parseServe(t, "-C", dir)
+	assert.Equal(t, dir, got.Root.Value())
+}
+
 func TestServeParseFlags(t *testing.T) {
 	dir := t.TempDir()
 	got := parseServe(t,
@@ -100,7 +106,7 @@ func TestServeRejectsPositional(t *testing.T) {
 func TestAppUsage(t *testing.T) {
 	text, err := cmd.Usage[cmd.App[root]]("gaderno")
 	require.NoError(t, err)
-	for _, want := range []string{"serve", "version", "--verbose", "--version", "--help"} {
+	for _, want := range []string{"serve", "desktop", "version", "--verbose", "--version", "--help"} {
 		assert.Contains(t, text, want)
 	}
 }
@@ -110,6 +116,7 @@ func TestServeUsage(t *testing.T) {
 	require.NoError(t, err)
 	for _, want := range []string{
 		"--listen",
+		"-C",
 		"--root",
 		"--token",
 		"--kernel",
