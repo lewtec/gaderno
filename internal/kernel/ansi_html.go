@@ -57,27 +57,30 @@ func ANSIToHTML(s string) string {
 	}
 
 	i := 0
+	// eatCSI consumes one CSI (ESC [ or C1 0x9b). paramAt is the first
+	// parameter byte. No final byte stops the walk; retrying the same
+	// introducer would spin.
+	eatCSI := func(paramAt int) bool {
+		j := paramAt
+		for j < len(s) {
+			c := s[j]
+			if c >= 0x40 && c <= 0x7e {
+				if c == 'm' {
+					applySGR(s[paramAt:j], &bold, &underline, &fg)
+					setStyle()
+				}
+				// drop other CSI (cursor etc.) for HTML path
+				i = j + 1
+				return true
+			}
+			j++
+		}
+		return false
+	}
+
 	for i < len(s) {
 		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
-			// CSI … final
-			j := i + 2
-			for j < len(s) {
-				c := s[j]
-				if c >= 0x40 && c <= 0x7e {
-					params := s[i+2 : j]
-					final := c
-					j++
-					if final == 'm' {
-						applySGR(params, &bold, &underline, &fg)
-						setStyle()
-					}
-					// drop other CSI (cursor etc.) for HTML path
-					i = j
-					break
-				}
-				j++
-			}
-			if j >= len(s) {
+			if !eatCSI(i + 2) {
 				break
 			}
 			continue
@@ -92,22 +95,8 @@ func ANSIToHTML(s string) string {
 			continue
 		}
 		if s[i] == 0x9b {
-			// C1 CSI
-			j := i + 1
-			for j < len(s) {
-				c := s[j]
-				if c >= 0x40 && c <= 0x7e {
-					params := s[i+1 : j]
-					final := c
-					j++
-					if final == 'm' {
-						applySGR(params, &bold, &underline, &fg)
-						setStyle()
-					}
-					i = j
-					break
-				}
-				j++
+			if !eatCSI(i + 1) {
+				break
 			}
 			continue
 		}
