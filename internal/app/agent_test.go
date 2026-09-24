@@ -77,6 +77,23 @@ func openSessionByPath(t *testing.T, mux http.Handler, path string) agentNoteboo
 	return nb
 }
 
+// openMissingKernelSession saves a notebook whose kernelspec name is not in
+// the catalog, then opens it. Execute against that session cannot bind a kernel.
+func openMissingKernelSession(t *testing.T) (*http.ServeMux, *session.Registry, agentNotebook, string) {
+	t.Helper()
+	mux, reg, st := newAgentMux(t)
+	nb := document.NewEmpty()
+	nb.Metadata["kernelspec"] = map[string]any{
+		"name":         "gaderno-test-missing",
+		"display_name": "missing",
+	}
+	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
+		t.Fatal(err)
+	}
+	opened := openSessionByPath(t, mux, "n.ipynb")
+	return mux, reg, opened, opened.Cells[0].ID
+}
+
 func TestAgentContractRoute(t *testing.T) {
 	mux, _, _ := newAgentMux(t)
 	rec := doJSON(t, mux, http.MethodGet, "/api/agent", nil)
@@ -374,17 +391,7 @@ func TestCellMutationErrors(t *testing.T) {
 }
 
 func TestExecuteWritesSourceBeforeKernel(t *testing.T) {
-	mux, reg, st := newAgentMux(t)
-	nb := document.NewEmpty()
-	nb.Metadata["kernelspec"] = map[string]any{
-		"name":         "gaderno-test-missing",
-		"display_name": "missing",
-	}
-	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
-		t.Fatal(err)
-	}
-	opened := openSessionByPath(t, mux, "n.ipynb")
-	id := opened.Cells[0].ID
+	mux, reg, opened, id := openMissingKernelSession(t)
 
 	rec := doJSON(t, mux, http.MethodPost, "/api/sessions/"+opened.SessionID+"/cells/"+id+"/execute", map[string]any{
 		"source": "print(9)",
@@ -402,17 +409,7 @@ func TestExecuteWritesSourceBeforeKernel(t *testing.T) {
 }
 
 func TestExecuteIgnoresKernelField(t *testing.T) {
-	mux, reg, st := newAgentMux(t)
-	nb := document.NewEmpty()
-	nb.Metadata["kernelspec"] = map[string]any{
-		"name":         "gaderno-test-missing",
-		"display_name": "missing",
-	}
-	if err := st.Save(t.Context(), "n.ipynb", nb); err != nil {
-		t.Fatal(err)
-	}
-	opened := openSessionByPath(t, mux, "n.ipynb")
-	id := opened.Cells[0].ID
+	mux, reg, opened, id := openMissingKernelSession(t)
 
 	// A kernel name in the body must not bind. Missing spec would be 409 if
 	// BindKernel ran; no bound spec is 400.
