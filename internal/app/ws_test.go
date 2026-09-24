@@ -14,6 +14,52 @@ import (
 	"github.com/lucasew/gaderno/internal/store"
 )
 
+func TestKernelRPCCodePos(t *testing.T) {
+	pos := 3
+	tests := []struct {
+		name     string
+		ctrl     wsControl
+		wantCode string
+		wantPos  int
+	}{
+		{name: "empty", ctrl: wsControl{}, wantCode: "", wantPos: 0},
+		{name: "code wins", ctrl: wsControl{Code: "abc", Source: "xyz"}, wantCode: "abc", wantPos: 3},
+		{name: "source fallback", ctrl: wsControl{Source: "xy"}, wantCode: "xy", wantPos: 2},
+		{name: "explicit cursor", ctrl: wsControl{Code: "abcd", CursorPos: &pos}, wantCode: "abcd", wantPos: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, got := kernelRPCCodePos(tt.ctrl)
+			if code != tt.wantCode || got != tt.wantPos {
+				t.Fatalf("kernelRPCCodePos() = %q, %d; want %q, %d", code, got, tt.wantCode, tt.wantPos)
+			}
+		})
+	}
+}
+
+func TestSendErr(t *testing.T) {
+	c := &session.Client{ID: "c1", Out: make(chan session.Outbound, 1)}
+	sendErr(c, "nope")
+	select {
+	case out := <-c.Out:
+		if !strings.Contains(string(out.Data), `"type":"error"`) || !strings.Contains(string(out.Data), "nope") {
+			t.Fatalf("payload %s", out.Data)
+		}
+	default:
+		t.Fatal("expected send")
+	}
+}
+
+func TestSendClientJSONDropsWhenBlocked(t *testing.T) {
+	c := &session.Client{ID: "c1", Out: make(chan session.Outbound)}
+	sendClientJSON(c, map[string]string{"type": "error", "text": "x"})
+	select {
+	case <-c.Out:
+		t.Fatal("expected drop on unbuffered blocked send")
+	default:
+	}
+}
+
 func TestMaxWSMessageBytesMatchesDisplayCap(t *testing.T) {
 	// Keep inbound WS bound aligned with kernel mime/stream soft caps.
 	const want = 12 << 20
