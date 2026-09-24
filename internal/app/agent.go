@@ -25,17 +25,21 @@ var agentContractFS embed.FS
 
 var errTrailingJSON = errors.New("unexpected JSON after first value")
 
+func serveEmbeddedMarkdown(w http.ResponseWriter, name, missing string) {
+	raw, err := agentContractFS.ReadFile(name)
+	if err != nil {
+		http.Error(w, missing, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	if _, err := w.Write(raw); err != nil {
+		return
+	}
+}
+
 func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry, token string, logger *slog.Logger) {
-	mux.HandleFunc("GET /SKILL.md", func(w http.ResponseWriter, r *http.Request) {
-		raw, err := agentContractFS.ReadFile("skill.md")
-		if err != nil {
-			http.Error(w, "skill missing", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-		if _, err := w.Write(raw); err != nil {
-			return
-		}
+	mux.HandleFunc("GET /SKILL.md", func(w http.ResponseWriter, _ *http.Request) {
+		serveEmbeddedMarkdown(w, "skill.md", "skill missing")
 	})
 
 	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
@@ -80,16 +84,8 @@ func registerAgentRoutes(mux *http.ServeMux, reg *session.Registry, token string
 		}))
 	})
 
-	mux.HandleFunc("GET /api/agent", func(w http.ResponseWriter, r *http.Request) {
-		raw, err := agentContractFS.ReadFile("agent.md")
-		if err != nil {
-			http.Error(w, "contract missing", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-		if _, err := w.Write(raw); err != nil {
-			return
-		}
+	mux.HandleFunc("GET /api/agent", func(w http.ResponseWriter, _ *http.Request) {
+		serveEmbeddedMarkdown(w, "agent.md", "contract missing")
 	})
 
 	mux.HandleFunc("GET /api/sessions", func(w http.ResponseWriter, r *http.Request) {
