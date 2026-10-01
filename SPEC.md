@@ -851,6 +851,7 @@ Large outputs: cap+truncate. Structure: anyone proposes; server may reject.
 - **Ship:** GitHub Release assets = platform binaries + checksums only.
 - **Do not ship (v1 packaging):** Homebrew tap, AUR, nix flake, Docker image with kernels.
 - Config: `.goreleaser.yaml` adapted from **existing GoReleaser examples** the author already uses elsewhere — not a greenfield stub checked in “empty for later.”
+- **lewkit app:** `eletrocromo.json` at the repo root names the package (id, icon, `cmd/gaderno`). `lewkit release run` builds that main and starts the window. `lewkit release run --app` builds the macOS, Android, or iOS host. Runtime settings stay in flags and `GADERNO_` variables (decision 22).
 - CGO: `CGO_ENABLED=0` for release builds (ygo + pure-Go ZMQ).
 - Kernels are **not** bundled. Host provides classic kernelspecs **and/or** `uv` on `PATH` for the synthetic uv group (ipykernel pulled ephemerally via `uv run --with`).
 - Trigger: git tags when CI/release workflow is wired; not required for MVP coding.

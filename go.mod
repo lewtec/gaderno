@@ -9,12 +9,13 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lewtec/lewkit v0.0.0-20260924172916-363fac3090d3
+	github.com/lewtec/lewkit v0.0.0-20261001180931-70a0a0b19549
 	github.com/reearth/ygo v1.31.6
 	github.com/stretchr/testify v1.12.1
 )
 
 require (
+	charm.land/bubbletea/v2 v2.0.7 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/andybalholm/brotli v1.2.4 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
@@ -43,6 +44,7 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/image v0.42.0 // indirect
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
