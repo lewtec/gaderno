@@ -2,20 +2,17 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"strconv"
 
 	"github.com/lewtec/lewkit/x/cmd"
-	"github.com/lewtec/lewkit/x/driver/webview"
-	"github.com/lewtec/lewkit/x/release"
-	"github.com/lewtec/lewkit/x/thread"
-	"github.com/lucasew/gaderno/internal/app"
+	"github.com/lewtec/lewkit/x/driver/thread"
 	"github.com/lucasew/gaderno/internal/auth"
 	"github.com/lucasew/gaderno/internal/config"
 
+	_ "github.com/lewtec/lewkit/x/driver/thread/std"
 	_ "github.com/lewtec/lewkit/x/driver/webview/prelude"
 )
 
@@ -47,58 +44,7 @@ func (c *desktopCmd) run(ctx context.Context) error {
 	if err := auth.CheckBind(cfg.Listen, cfg.Token, false); err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	ready := make(chan string, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- app.RunReady(ctx, cfg, release.Version(), func(addr string) {
-			ready <- addr
-		})
-	}()
-
-	var addr string
-	select {
-	case <-ctx.Done():
-		return context.Cause(ctx)
-	case err := <-errCh:
-		if err != nil {
-			return fmt.Errorf("desktop: %w", err)
-		}
-		return nil
-	case addr = <-ready:
-	}
-
-	page, err := desktopPage(addr, cfg.Token)
-	if err != nil {
-		return err
-	}
-	view, err := webview.Open(ctx, webview.Config{
-		Title:  "gaderno",
-		Width:  1200,
-		Height: 800,
-		HTML:   page,
-	})
-	if err != nil {
-		return fmt.Errorf("window: %w", err)
-	}
-
-	select {
-	case <-ctx.Done():
-		closeErr := view.Close()
-		return errors.Join(<-errCh, closeErr)
-	case <-view.Done():
-		cancel()
-		return <-errCh
-	case err := <-errCh:
-		closeErr := view.Close()
-		if err != nil {
-			err = fmt.Errorf("desktop: %w", err)
-		}
-		return errors.Join(err, closeErr)
-	}
+	return openWindow(ctx, cfg, false)
 }
 
 // desktopPage is a document that navigates to the loopback server.

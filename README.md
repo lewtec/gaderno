@@ -83,6 +83,7 @@ The **Agent** control is in the topbar. From a notebook it copies an invite pinn
 
 | Command | Purpose |
 |---------|---------|
+| `gaderno` | Open the folder window, then the notebook for that folder. `GADERNO_ROOT` skips the folder window. `gaderno -h` lists commands |
 | `gaderno serve` | HTTP + WebSocket UI over a workspace root (kernel cwd is `--root` / `-C`) |
 | `gaderno desktop` | Same server in a native window (WebKitGTK, WKWebView, or WebView2). Listens on `127.0.0.1:0` unless `--listen` is set |
 | `gaderno version` | Print version (also `--version`; release builds set `lewkit/x/release.version`) |
@@ -100,6 +101,26 @@ Flags override env. Prefix `GADERNO_`. `--root` must already exist.
 | `--kernel` | `GADERNO_KERNEL` | `python3` | Default kernelspec name hint (no auto-start) |
 
 Process flags (any command): `-v` / `--verbose`, `--profile-dir`, `-h` / `--help`, `--version`.
+
+### Package with lewkit
+
+`eletrocromo.json` names the package for `lewkit release`: id, icon, and `cmd/gaderno`. Gaderno settings stay in flags and `GADERNO_` environment variables.
+
+From the repository root:
+
+```bash
+lewkit release run
+```
+
+`lewkit release run` builds `cmd/gaderno` and starts it with no arguments. The folder window picks the notebook folder. `GADERNO_ROOT` skips that window. `GADERNO_LISTEN`, `GADERNO_TOKEN`, and `GADERNO_KERNEL` still apply. A bare port in `GADERNO_LISTEN` stays on `127.0.0.1`.
+
+```bash
+lewkit release run --app
+```
+
+On macOS, Android, or iOS, `--app` builds the host package and launches it. The host sets `ELETROCROMO_NO_UI` and reads `ELETROCROMO_READY`. The folder window picks the notebook folder when a window driver exists. With no window driver, notebooks go in `LEWKIT_DATA_DIR/notebooks`.
+
+GitHub Releases stay on GoReleaser (`.goreleaser.yaml`).
 
 ## Using the UI
 
