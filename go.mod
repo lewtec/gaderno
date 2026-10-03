@@ -9,7 +9,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lewtec/lewkit v0.0.0-20261003172654-e54d2ebeb429
+	github.com/lewtec/lewkit v0.0.0-20261003180004-08e3e776a943
 	github.com/reearth/ygo v1.31.6
 	github.com/stretchr/testify v1.12.1
 )

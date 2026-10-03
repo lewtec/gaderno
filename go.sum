@@ -70,8 +70,8 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/jezek/xgb v1.3.1 h1:NQCAEfQyzN+3RjWUSHBuVIxQcy2YfG3/mNvKfs/0rEg=
 github.com/jezek/xgb v1.3.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
-github.com/lewtec/lewkit v0.0.0-20261003172654-e54d2ebeb429 h1:rlaseJsjQ05iCEY0r6reLxjr3OVdAxIkGMkK+oGbi6g=
-github.com/lewtec/lewkit v0.0.0-20261003172654-e54d2ebeb429/go.mod h1:SuPHu5Hj55rdx24TlheHJKCwf5VleEcMVt+QxXpkiIY=
+github.com/lewtec/lewkit v0.0.0-20261003180004-08e3e776a943 h1:NNdHmJhoM41XSjTO9zW1kkiwjzuant945yobDVwPrC4=
+github.com/lewtec/lewkit v0.0.0-20261003180004-08e3e776a943/go.mod h1:SuPHu5Hj55rdx24TlheHJKCwf5VleEcMVt+QxXpkiIY=
 github.com/lucasb-eyer/go-colorful v1.4.0 h1:UtrWVfLdarDgc44HcS7pYloGHJUjHV/4FwW4TvVgFr4=
 github.com/lucasb-eyer/go-colorful v1.4.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 h1:6E+4a0GO5zZEnZ81pIr0yLvtUWk2if982qA3F3QD6H4=
