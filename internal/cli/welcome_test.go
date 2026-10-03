@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"runtime"
+
 	"github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/ui/gui"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +28,7 @@ func TestAppDirEnvSkipsWelcome(t *testing.T) {
 
 func TestAppDirPick(t *testing.T) {
 	t.Setenv("GADERNO_ROOT", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	dir := t.TempDir()
 	stubWelcome(t, true, func(context.Context) (string, error) {
 		return dir, nil
@@ -33,6 +36,10 @@ func TestAppDirPick(t *testing.T) {
 	got, err := appDir(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, dir, got)
+	recent, err := gui.Recent()
+	require.NoError(t, err)
+	require.Len(t, recent, 1)
+	assert.Equal(t, dir, recent[0].Path)
 }
 
 func TestAppDirCancel(t *testing.T) {
@@ -42,7 +49,7 @@ func TestAppDirCancel(t *testing.T) {
 	ready := filepath.Join(t.TempDir(), "ready.url")
 	t.Setenv("ELETROCROMO_READY_FILE", ready)
 	stubWelcome(t, true, func(context.Context) (string, error) {
-		return "", gui.ErrCanceled
+		return "", nil
 	})
 	require.NoError(t, RunHost(t.Context()))
 	_, err := os.Stat(ready)
@@ -137,6 +144,31 @@ func TestAppDirOpenError(t *testing.T) {
 	})
 	_, err := appDir(t.Context())
 	require.ErrorIs(t, err, os.ErrClosed)
+}
+
+func TestAppDirContentSkipsRemember(t *testing.T) {
+	t.Setenv("GADERNO_ROOT", "")
+	config := filepath.Join(t.TempDir(), "not-a-dir")
+	require.NoError(t, os.WriteFile(config, []byte("x"), 0o600))
+	t.Setenv("XDG_CONFIG_HOME", config)
+	stubWelcome(t, true, func(context.Context) (string, error) {
+		return "content://tree", nil
+	})
+	got, err := appDir(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "content://tree", got)
+}
+
+func TestFolderApp(t *testing.T) {
+	t.Setenv("ELETROCROMO_NO_UI", "")
+	t.Setenv("LEWKIT_NO_UI", "")
+	assert.True(t, folderApp())
+	t.Setenv("ELETROCROMO_NO_UI", "1")
+	assert.Equal(t, runtime.GOOS == "android", folderApp())
+}
+
+func TestReleaseStampedDev(t *testing.T) {
+	assert.False(t, releaseStamped())
 }
 
 func TestAppLogo(t *testing.T) {

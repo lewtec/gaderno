@@ -9,13 +9,14 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lewtec/lewkit v0.0.0-20261003015005-e0f3029be4f3
+	github.com/lewtec/lewkit v0.0.0-20261003172654-e54d2ebeb429
 	github.com/reearth/ygo v1.31.6
 	github.com/stretchr/testify v1.12.1
 )
 
 require (
 	charm.land/bubbletea/v2 v2.0.7 // indirect
+	github.com/AndroidGoLab/binder v0.0.9 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/andybalholm/brotli v1.2.4 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
@@ -30,9 +31,14 @@ require (
 	github.com/cli/browser v1.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
+	github.com/facebookincubator/go-belt v0.0.0-20250308011339-62fb7027b11f // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-ng/slices v0.0.0-20230703171042-6195d35636a2 // indirect
+	github.com/go-ng/sort v0.0.0-20220617173827-2cc7cd04f7c7 // indirect
+	github.com/go-ng/xsort v0.0.0-20220617174223-1d146907bccc // indirect
 	github.com/go-zeromq/goczmq/v4 v4.2.2 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/jezek/xgb v1.3.1 // indirect
@@ -42,6 +48,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
+	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

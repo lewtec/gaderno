@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/driver/webview"
@@ -30,9 +32,10 @@ func HostLaunch(args []string) bool {
 }
 
 // RunHost serves the notebook UI for a lewkit app process.
-// The folder window picks the directory first.
-// entry.Main calls it on the UI thread. The Android host calls it
-// through entry.RunBound, which has not bound that thread yet.
+// The folder window runs first. One entry.Run stays up afterwards,
+// because a folder session that owns the loop stops it on return.
+// entry.Main calls RunHost on the UI thread. The Android host calls it
+// through entry.RunBound before that loop is pumping.
 func RunHost(ctx context.Context) error {
 	if taskgroup.FromContext(ctx) != nil {
 		return runHost(ctx)
@@ -41,6 +44,8 @@ func RunHost(ctx context.Context) error {
 }
 
 func runHost(ctx context.Context) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGTERM)
+	defer stop()
 	root, err := appDir(ctx)
 	if err != nil {
 		return err

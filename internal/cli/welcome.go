@@ -8,17 +8,25 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"runtime"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/app"
 	"github.com/lewtec/lewkit/x/driver"
 	"github.com/lewtec/lewkit/x/driver/window"
 	"github.com/lewtec/lewkit/x/entry"
+	"github.com/lewtec/lewkit/x/release"
 	"github.com/lewtec/lewkit/x/ui/gui"
 	"github.com/lucasew/gaderno/internal/web"
 
-	// The folder window and its browse button need these drivers.
+	// Browse on the folder window calls filedialog.Choose.
 	_ "github.com/lewtec/lewkit/x/driver/filedialog/prelude"
-	_ "github.com/lewtec/lewkit/x/driver/window/prelude"
+)
+
+const (
+	folderTitle  = "gaderno"
+	folderWidth  = 880
+	folderHeight = 720
 )
 
 // showWelcome reports whether a real window can open.
@@ -37,12 +45,65 @@ var showWelcome = func(ctx context.Context) bool {
 }
 
 // openWelcome shows the folder window. Tests replace it.
+// An empty path and a nil error means the user closed it.
 var openWelcome = func(ctx context.Context) (string, error) {
+	dirs, err := gui.Recent()
+	if err != nil {
+		dirs = nil
+	}
 	logo, err := appLogo()
 	if err != nil {
 		return "", err
 	}
-	return gui.ChooseDir(ctx, gui.WelcomeArgs{Title: "gaderno", Logo: logo})
+	model := gui.NewWelcome(gui.WelcomeArgs{Title: folderTitle, Dirs: dirs, Logo: logo})
+	err = runFolderWindow(ctx, model)
+	if path := model.Picked(); path != "" {
+		return path, nil
+	}
+	if ctx.Err() != nil {
+		return "", context.Cause(ctx)
+	}
+	if err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
+// runFolderWindow opens the welcome model and blocks until it closes.
+// A stamped release uses app.App so Android keeps the UI loop and drops
+// the splash. app.App panics without a stamp, and a desktop host with
+// ELETROCROMO_NO_UI rejects a GUI model. Those launches use app.Open.
+func runFolderWindow(ctx context.Context, model *gui.Welcome) error {
+	if releaseStamped() && folderApp() {
+		return app.App{
+			Title:   folderTitle,
+			Width:   folderWidth,
+			Height:  folderHeight,
+			Handler: app.GUI(model),
+		}.Run(ctx)
+	}
+	if runtime.GOOS == "android" {
+		entry.ShowSurface()
+	}
+	return app.Open(ctx, app.GUI(model), folderTitle, folderWidth, folderHeight)
+}
+
+// folderApp reports whether app.App can show the folder window.
+// Android leaves a GUI model on the surface. Other no-UI hosts require a web handler.
+func folderApp() bool {
+	if !hostNoUI() {
+		return true
+	}
+	return runtime.GOOS == "android"
+}
+
+func releaseStamped() bool {
+	version := strings.TrimSpace(release.Version())
+	if version == "" || version == "dev" || strings.HasPrefix(version, "dev-") {
+		return false
+	}
+	_, err := release.AppID()
+	return err == nil
 }
 
 // appDir is the notebook root for an app launch.
@@ -57,7 +118,7 @@ func appDir(ctx context.Context) (string, error) {
 	}
 	dir, err := openWelcome(ctx)
 	if err != nil {
-		if errors.Is(err, gui.ErrCanceled) || errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.Canceled) {
 			return welcomeClosed()
 		}
 		if errors.Is(err, driver.ErrUnavailable) {
@@ -67,6 +128,11 @@ func appDir(ctx context.Context) (string, error) {
 	}
 	if dir == "" {
 		return welcomeClosed()
+	}
+	if !strings.HasPrefix(dir, "content:") {
+		if err := gui.Remember(dir); err != nil {
+			return "", err
+		}
 	}
 	return dir, nil
 }
