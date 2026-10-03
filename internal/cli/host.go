@@ -30,6 +30,7 @@ func HostLaunch(args []string) bool {
 }
 
 // RunHost serves the notebook UI for a lewkit app process.
+// The folder window picks the directory first.
 // entry.Main calls it on the UI thread. The Android host calls it
 // through entry.RunBound, which has not bound that thread yet.
 func RunHost(ctx context.Context) error {
@@ -40,7 +41,14 @@ func RunHost(ctx context.Context) error {
 }
 
 func runHost(ctx context.Context) error {
-	cfg, err := hostConfig()
+	root, err := appDir(ctx)
+	if err != nil {
+		return err
+	}
+	if root == "" {
+		return nil
+	}
+	cfg, err := hostConfig(root)
 	if err != nil {
 		return err
 	}
@@ -53,11 +61,7 @@ func runHost(ctx context.Context) error {
 	return openWindow(ctx, cfg, true)
 }
 
-func hostConfig() (config.Config, error) {
-	root, err := hostRoot()
-	if err != nil {
-		return config.Config{}, err
-	}
+func hostConfig(root string) (config.Config, error) {
 	kernel := strings.TrimSpace(os.Getenv("GADERNO_KERNEL"))
 	if kernel == "" {
 		kernel = "python3"
