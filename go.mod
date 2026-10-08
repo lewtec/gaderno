@@ -9,7 +9,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lewtec/lewkit v0.0.0-20261003180004-08e3e776a943
+	github.com/lewtec/lewkit v0.0.0-20261008021425-b30edc40de58
 	github.com/reearth/ygo v1.31.6
 	github.com/stretchr/testify v1.12.1
 )
@@ -34,7 +34,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/facebookincubator/go-belt v0.0.0-20250308011339-62fb7027b11f // indirect
-	github.com/fatih/color v1.16.0 // indirect
+	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-ng/slices v0.0.0-20230703171042-6195d35636a2 // indirect
 	github.com/go-ng/sort v0.0.0-20220617173827-2cc7cd04f7c7 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/jezek/xgb v1.3.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
