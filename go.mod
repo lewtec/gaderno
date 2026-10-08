@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/a-h/templ v0.3.1020
-	github.com/charmbracelet/x/vt v0.0.0-20260816001655-68d539dca504
+	github.com/charmbracelet/x/vt v0.0.0-20261004011457-ad85c59fdf4e
 	github.com/go-zeromq/zmq4 v0.17.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
