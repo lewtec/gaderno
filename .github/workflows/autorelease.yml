@@ -41,7 +41,7 @@ jobs:
           git config user.name actions-bot
           git config user.email actions-bot@users.noreply.github.com
 
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5
 
       - name: Install
         run: mise run install
