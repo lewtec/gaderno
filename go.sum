@@ -91,8 +91,6 @@ github.com/opencontainers/selinux v1.13.1 h1:A8nNeceYngH9Ow++M+VVEwJVpdFmrlxsN22
 github.com/opencontainers/selinux v1.13.1/go.mod h1:S10WXZ/osk2kWOYKy1x2f/eXF5ZHJoUs8UU/2caNRbg=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/reearth/ygo v1.31.6 h1:Z2Z+M08DCFJ4P6bh2oswmsuZAAppuXNtRWWddGh+/Js=
-github.com/reearth/ygo v1.31.6/go.mod h1:QN5MsM+QBk9cP6Sr/iaKlkJtnJ9Fo0fT+MJqSw2xPUA=
 github.com/reearth/ygo v1.56.0 h1:DVPcokdh1AGvb7VjoQWHzQK0H3XY14YVz4KboLiIXfI=
 github.com/reearth/ygo v1.56.0/go.mod h1:LpzEyyGErwVVVLNB+8rZfVy/zbZbhWjdkONAobCIlYA=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=
